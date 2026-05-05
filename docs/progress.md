@@ -45,7 +45,26 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 2 — configurar SQLite (`tauri-plugin-sql`)
+**Próximo step:** Step 3 — migraciones (10 tablas)
+
+---
+
+### ✅ Step 2 completado — 2026-05-04
+
+**Qué se hizo:**
+- Agregado `sqlx 0.8` con features `runtime-tokio`, `sqlite`, `migrate`
+- Creado módulo `src-tauri/src/db/` con `mod.rs` y `connection.rs`
+- `connection::init()` abre/crea `gestermoney.db` en el directorio de datos del usuario
+- `DbPool` expuesto como estado Tauri con `app.manage(pool)`
+- `sqlx::migrate!()` apunta a `src/db/migrations/` — listo para Step 3
+- Directorio de migraciones creado con `.gitkeep`
+
+**Verificación:**
+```
+cargo check → ✅ Finished en 2s
+```
+
+**Próximo step:** Step 3 — 10 migraciones SQL
 
 ---
 
@@ -53,7 +72,7 @@ cargo check     → ✅ Finished en 18s
 
 | Step | Descripción | Estado |
 |------|-------------|--------|
-| 2 | Configurar SQLite + conexión local | ⏳ |
+| 2 | Configurar SQLite + conexión local | ✅ |
 | 3 | Sistema de migraciones (10 tablas) | ⏳ |
 | 4 | `domain/money.rs` — montos en centavos | ⏳ |
 | 5 | `domain/event_rules.rs` — reglas de estados | ⏳ |
