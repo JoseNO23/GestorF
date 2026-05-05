@@ -45,7 +45,26 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 4 — `domain/money.rs`
+**Próximo step:** Step 5 — `domain/event_rules.rs`
+
+---
+
+### ✅ Step 4 completado — 2026-05-04
+
+**Qué se hizo:**
+- Creado `src-tauri/src/domain/money.rs` con newtype `Money(i64)`
+- Aritmética: `Add`, `Sub`, `AddAssign`, `SubAssign`, `Neg`
+- `from_minor()`, `to_minor()`, `from_input()`, `display()`, `abs()`, `is_zero()`, `is_negative()`
+- `from_input()` parsea strings sin float: "10.50" → 1050, "1,000.50" → 100050
+- `display()` formatea a "S/ 10.50", negativos como "-S/ 5.00"
+- Módulo `domain` registrado en `lib.rs`
+
+**Verificación:**
+```
+cargo test domain::money → 8/8 tests ok
+```
+
+**Próximo step:** Step 5 — `domain/event_rules.rs`
 
 ---
 
@@ -94,7 +113,7 @@ cargo check → ✅ Finished en 2s
 |------|-------------|--------|
 | 2 | Configurar SQLite + conexión local | ✅ |
 | 3 | Sistema de migraciones (10 tablas) | ✅ |
-| 4 | `domain/money.rs` — montos en centavos | ⏳ |
+| 4 | `domain/money.rs` — montos en centavos | ✅ |
 | 5 | `domain/event_rules.rs` — reglas de estados | ⏳ |
 | 6 | `domain/credit_card.rs` — lógica TC | ⏳ |
 | 7 | `domain/projections.rs` — cálculos principales | ⏳ |
