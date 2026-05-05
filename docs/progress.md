@@ -45,7 +45,27 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 5 — `domain/event_rules.rs`
+**Próximo step:** Step 6 — `domain/credit_card.rs`
+
+---
+
+### ✅ Step 5 completado — 2026-05-04
+
+**Qué se hizo:**
+- `StatusRules`: struct con los 6 switches controlados del sistema
+- `EventType`: enum (Income, Expense, Transfer, DebtPayment, DebtCharge, Receivable)
+  con `sign()` (+1/-1/0) y `can_affect_real()`
+- `RulesMap`: `HashMap<i64, StatusRules>` para lookup sin N queries
+- Funciones: `should_affect_real`, `should_affect_available`, `should_affect_future`, `should_create_alert`
+- Reglas clave: Transfer siempre neutro, DebtCharge no mueve caja, excluidos no cuentan
+- Separación limpia: event_rules no sabe de TC — eso va en credit_card.rs
+
+**Verificación:**
+```
+cargo test domain::event_rules → 20/20 ok
+```
+
+**Próximo step:** Step 6 — `domain/credit_card.rs`
 
 ---
 
@@ -114,7 +134,7 @@ cargo check → ✅ Finished en 2s
 | 2 | Configurar SQLite + conexión local | ✅ |
 | 3 | Sistema de migraciones (10 tablas) | ✅ |
 | 4 | `domain/money.rs` — montos en centavos | ✅ |
-| 5 | `domain/event_rules.rs` — reglas de estados | ⏳ |
+| 5 | `domain/event_rules.rs` — reglas de estados | ✅ |
 | 6 | `domain/credit_card.rs` — lógica TC | ⏳ |
 | 7 | `domain/projections.rs` — cálculos principales | ⏳ |
 | 8 | Tests de cálculo — `cargo test` verde | ⏳ |
