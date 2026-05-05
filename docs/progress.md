@@ -45,7 +45,27 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 3 — migraciones (10 tablas)
+**Próximo step:** Step 4 — `domain/money.rs`
+
+---
+
+### ✅ Step 3 completado — 2026-05-04
+
+**Qué se hizo:**
+- 10 archivos de migración SQL en `src-tauri/src/db/migrations/`
+- `connection.rs` actualizado: `foreign_keys=ON`, modo `WAL`, `create_if_missing`
+- Tablas: `app_settings`, `periods`, `accounts`, `payment_methods`, `categories`,
+  `statuses`, `status_rules`, `financial_events`, `custom_field_definitions`, `custom_field_values`
+- Índices en `financial_events` (period, status, parent)
+- `app_settings` sembrada con fila singleton (id=1, PEN)
+- `amount_minor` con CHECK >= 0 (siempre positivo, la dirección la define el `type`)
+
+**Verificación:**
+```
+cargo check → ✅ Finished en 3.5s
+```
+
+**Próximo step:** Step 4 — `domain/money.rs`
 
 ---
 
@@ -73,7 +93,7 @@ cargo check → ✅ Finished en 2s
 | Step | Descripción | Estado |
 |------|-------------|--------|
 | 2 | Configurar SQLite + conexión local | ✅ |
-| 3 | Sistema de migraciones (10 tablas) | ⏳ |
+| 3 | Sistema de migraciones (10 tablas) | ✅ |
 | 4 | `domain/money.rs` — montos en centavos | ⏳ |
 | 5 | `domain/event_rules.rs` — reglas de estados | ⏳ |
 | 6 | `domain/credit_card.rs` — lógica TC | ⏳ |
