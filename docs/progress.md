@@ -45,7 +45,26 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 6 — `domain/credit_card.rs`
+**Próximo step:** Step 7 — `domain/projections.rs`
+
+---
+
+### ✅ Step 6 completado — 2026-05-04
+
+**Qué se hizo:**
+- `PaymentMethodKind`: enum (Cash, Debit, Credit, Transfer, Other) con `from_str`, `as_str`, `is_credit`
+- `is_credit_purchase`: Expense + método crédito → NO reduce dinero real
+- `is_debt_payment`: DebtPayment → reduce real, no duplica gasto económico
+- `is_excluded_child`: padre + exclude_from_total=true → aparece pero no suma
+- `validate_parent_child`: un evento no puede ser su propio padre
+- Separación limpia: credit_card.rs usa EventType de event_rules, no al revés
+
+**Verificación:**
+```
+cargo test domain::credit_card → 15/15 ok
+```
+
+**Próximo step:** Step 7 — `domain/projections.rs`
 
 ---
 
@@ -135,7 +154,7 @@ cargo check → ✅ Finished en 2s
 | 3 | Sistema de migraciones (10 tablas) | ✅ |
 | 4 | `domain/money.rs` — montos en centavos | ✅ |
 | 5 | `domain/event_rules.rs` — reglas de estados | ✅ |
-| 6 | `domain/credit_card.rs` — lógica TC | ⏳ |
+| 6 | `domain/credit_card.rs` — lógica TC | ✅ |
 | 7 | `domain/projections.rs` — cálculos principales | ⏳ |
 | 8 | Tests de cálculo — `cargo test` verde | ⏳ |
 | 9 | Repositories (acceso a datos) | ⏳ |
