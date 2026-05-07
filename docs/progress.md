@@ -45,7 +45,32 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 11 — AppShell (UI base)
+**Próximo step:** Step 12 — Pantalla Configuración
+
+---
+
+### ✅ Step 11 completado — 2026-05-07
+
+**Qué se hizo:**
+- Instalado: `react-router-dom v7`, `@tanstack/react-query v5`, `tailwindcss v4`, `lucide-react`
+- `vite.config.ts`: plugin `@tailwindcss/vite` agregado
+- `src/index.css`: `@import "tailwindcss"` (Tailwind v4)
+- `src/domain-client/types.ts`: interfaces TypeScript espejo de Rust structs
+- `src/domain-client/commands.ts`: todos los `invoke()` aislados aquí — clave para migración web
+- `src/utils/money.ts`: `formatMoney()`, `formatPeriod()`, `MONTHS_ES`
+- `AppShell`: layout flex (sidebar 240px + main fluid)
+- `Sidebar`: nav con NavLink activo resaltado + Configuración al fondo
+- `MonthSelector`: React Query para active-period + mutación para cambiar mes
+- `routes.tsx`: HashRouter con 6 rutas bajo AppShell
+- `main.tsx`: QueryClientProvider + RouterProvider
+- 6 páginas placeholder (sin datos mock)
+
+**Verificación:**
+```
+npm run build → ✅ built in 3.88s, 1815 módulos
+```
+
+**Próximo step:** Step 12 — Pantalla Configuración
 
 ---
 
@@ -244,7 +269,7 @@ cargo check → ✅ Finished en 2s
 | 8 | Tests de cálculo — `cargo test` verde | ✅ |
 | 9 | Repositories (acceso a datos) | ✅ |
 | 10 | Commands Tauri (API para React) | ✅ |
-| 11 | AppShell (layout base) | ⏳ |
+| 11 | AppShell (layout base) | ✅ |
 | 12 | Pantalla Configuración | ⏳ |
 | 13 | Pantalla Gastos | ⏳ |
 | 14 | Pantalla Ingresos | ⏳ |
