@@ -23,8 +23,7 @@ pub async fn list_accounts(pool: &DbPool) -> Result<Vec<Account>, sqlx::Error> {
     sqlx::query_as::<_, Account>(
         "SELECT id, name, kind, opening_balance_minor, archived_at
          FROM accounts
-         WHERE archived_at IS NULL
-         ORDER BY kind, name",
+         ORDER BY archived_at, kind, name",
     )
     .fetch_all(pool)
     .await
@@ -55,8 +54,40 @@ pub async fn create_account(
     .await
 }
 
-pub async fn archive_account(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE accounts SET archived_at = datetime('now') WHERE id = ?")
+pub async fn update_account(
+    pool: &DbPool,
+    id: i64,
+    input: CreateAccountInput,
+) -> Result<Account, sqlx::Error> {
+    sqlx::query(
+        "UPDATE accounts SET name = ?, kind = ?, opening_balance_minor = ? WHERE id = ?",
+    )
+    .bind(&input.name)
+    .bind(&input.kind)
+    .bind(input.opening_balance_minor)
+    .bind(id)
+    .execute(pool)
+    .await?;
+    sqlx::query_as::<_, Account>(
+        "SELECT id, name, kind, opening_balance_minor, archived_at FROM accounts WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await
+}
+
+pub async fn toggle_account(pool: &DbPool, id: i64, enabled: bool) -> Result<(), sqlx::Error> {
+    let sql = if enabled {
+        "UPDATE accounts SET archived_at = NULL WHERE id = ?"
+    } else {
+        "UPDATE accounts SET archived_at = datetime('now') WHERE id = ?"
+    };
+    sqlx::query(sql).bind(id).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn delete_account(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM accounts WHERE id = ?")
         .bind(id)
         .execute(pool)
         .await?;

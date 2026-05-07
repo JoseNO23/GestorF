@@ -3,14 +3,16 @@ import AccountsSection from './sections/AccountsSection';
 import PaymentMethodsSection from './sections/PaymentMethodsSection';
 import CategoriesSection from './sections/CategoriesSection';
 import StatusesSection from './sections/StatusesSection';
+import RecurringRulesSection from './sections/RecurringRulesSection';
 
-type Tab = 'cuentas' | 'metodos' | 'categorias' | 'estados';
+type Tab = 'cuentas' | 'metodos' | 'categorias' | 'estados' | 'recurrentes';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'cuentas', label: 'Cuentas' },
   { id: 'metodos', label: 'Métodos de pago' },
   { id: 'categorias', label: 'Categorías' },
   { id: 'estados', label: 'Estados' },
+  { id: 'recurrentes', label: 'Recurrentes' },
 ];
 
 export default function SettingsPage() {
@@ -42,6 +44,7 @@ export default function SettingsPage() {
       {tab === 'metodos' && <PaymentMethodsSection />}
       {tab === 'categorias' && <CategoriesSection />}
       {tab === 'estados' && <StatusesSection />}
+      {tab === 'recurrentes' && <RecurringRulesSection />}
     </div>
   );
 }

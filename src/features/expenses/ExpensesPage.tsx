@@ -87,7 +87,7 @@ export default function ExpensesPage() {
         </select>
         <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={selectClass}>
           <option value="">Todas las categorías</option>
-          {categories.filter((c) => c.scope !== 'income').map((c) => (
+          {categories.filter((c) => !c.archived_at && c.scope !== 'income').map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>

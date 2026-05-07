@@ -28,6 +28,7 @@ pub struct FinancialEventRow {
     pub parent_event_id: Option<i64>,
     pub exclude_from_total: bool,
     pub notes: Option<String>,
+    pub recurring_rule_id: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -49,6 +50,7 @@ pub struct CreateEventInput {
     pub parent_event_id: Option<i64>,
     pub exclude_from_total: bool,
     pub notes: Option<String>,
+    pub recurring_rule_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +83,8 @@ const SELECT_EVENT: &str =
     "SELECT id, period_id, type as event_type, title, amount_minor,
             event_date, due_date, status_id, category_id, payment_method_id,
             source_account_id, target_account_id, liability_account_id,
-            parent_event_id, exclude_from_total, notes, created_at, updated_at
+            parent_event_id, exclude_from_total, notes, recurring_rule_id,
+            created_at, updated_at
      FROM financial_events";
 
 pub async fn list_events(
@@ -115,8 +118,8 @@ pub async fn create_event(
             (period_id, type, title, amount_minor, event_date, due_date,
              status_id, category_id, payment_method_id, source_account_id,
              target_account_id, liability_account_id, parent_event_id,
-             exclude_from_total, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             exclude_from_total, notes, recurring_rule_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(input.period_id)
     .bind(&input.event_type)
@@ -133,6 +136,7 @@ pub async fn create_event(
     .bind(input.parent_event_id)
     .bind(input.exclude_from_total)
     .bind(&input.notes)
+    .bind(input.recurring_rule_id)
     .execute(pool)
     .await?;
 

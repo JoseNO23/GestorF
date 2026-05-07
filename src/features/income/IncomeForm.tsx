@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { RotateCcw } from 'lucide-react';
 import * as cmd from '../../domain-client/commands';
 import type { FinancialEventRow } from '../../domain-client/types';
 import { parseMoneyInput, minorToInputStr } from '../../utils/money';
+import RecurringSection, { EMPTY_RECURRING, type RecurringFormState } from '../shared/RecurringSection';
 
 interface Props {
   periodId: number;
@@ -28,11 +30,14 @@ function initForm(event?: FinancialEventRow) {
 export default function IncomeForm({ periodId, event, onClose }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState(() => initForm(event));
+  const [recurring, setRecurring] = useState<RecurringFormState>(EMPTY_RECURRING);
   const [error, setError] = useState('');
 
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: cmd.listStatusesWithRules });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: cmd.listCategories });
   const { data: methods = [] } = useQuery({ queryKey: ['payment-methods'], queryFn: cmd.listPaymentMethods });
+
+  const activeStatuses = statuses.filter((sw) => !sw.status.archived_at).map((sw) => sw.status);
 
   const set = (field: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -57,13 +62,42 @@ export default function IncomeForm({ periodId, event, onClose }: Props) {
         notes: form.notes.trim() || undefined,
       };
 
-      return event
-        ? cmd.updateEvent(event.id, base)
-        : cmd.createEvent({ period_id: periodId, event_type: 'income', ...base });
+      if (event) {
+        return cmd.updateEvent(event.id, base);
+      }
+
+      // Crear: si es recurrente, crear la regla primero
+      let recurringRuleId: number | undefined;
+      if (recurring.is_recurring) {
+        const rule = await cmd.createRecurringRule({
+          event_type: 'income',
+          title: base.title,
+          amount_minor: base.amount_minor,
+          frequency: recurring.frequency,
+          day_of_month: recurring.frequency === 'monthly' ? Number(recurring.day_of_month) : undefined,
+          interval_days: recurring.frequency !== 'monthly' ? Number(recurring.interval_days) : undefined,
+          category_id: base.category_id,
+          payment_method_id: base.payment_method_id,
+          default_status_id: recurring.default_status_id ? Number(recurring.default_status_id) : undefined,
+          starts_on: recurring.starts_on,
+          ends_on: recurring.ends_on || undefined,
+          remind_days_before: recurring.remind_days_before ? Number(recurring.remind_days_before) : undefined,
+          notes: base.notes,
+        });
+        recurringRuleId = rule.id;
+      }
+
+      return cmd.createEvent({
+        period_id: periodId,
+        event_type: 'income',
+        ...base,
+        recurring_rule_id: recurringRuleId,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['events'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['recurring-rules'] });
       onClose();
     },
     onError: (err: Error) => setError(err.message),
@@ -95,8 +129,8 @@ export default function IncomeForm({ periodId, event, onClose }: Props) {
           <label className={label}>Estado *</label>
           <select required value={form.status_id} onChange={set('status_id')} className={field}>
             <option value="">— Seleccionar —</option>
-            {statuses.filter((sw) => !sw.status.archived_at).map((sw) => (
-              <option key={sw.status.id} value={sw.status.id}>{sw.status.name}</option>
+            {activeStatuses.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
         </div>
@@ -104,7 +138,7 @@ export default function IncomeForm({ periodId, event, onClose }: Props) {
           <label className={label}>Categoría</label>
           <select value={form.category_id} onChange={set('category_id')} className={field}>
             <option value="">— Ninguna —</option>
-            {categories.filter((c) => c.scope !== 'expense').map((c) => (
+            {categories.filter((c) => !c.archived_at && c.scope !== 'expense').map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
@@ -116,7 +150,7 @@ export default function IncomeForm({ periodId, event, onClose }: Props) {
           <label className={label}>Método de pago</label>
           <select value={form.payment_method_id} onChange={set('payment_method_id')} className={field}>
             <option value="">— Ninguno —</option>
-            {methods.map((m) => (
+            {methods.filter((m) => !m.archived_at).map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}
           </select>
@@ -131,6 +165,26 @@ export default function IncomeForm({ periodId, event, onClose }: Props) {
         <label className={label}>Notas</label>
         <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder="Opcional..." className={`${field} resize-none`} />
       </div>
+
+      {/* Sección cobro recurrente — solo en creación */}
+      {!event && (
+        <RecurringSection
+          value={recurring}
+          onChange={setRecurring}
+          statuses={activeStatuses}
+          fieldClass={field}
+          labelClass={label}
+          mode="income"
+        />
+      )}
+
+      {/* Indicador si el evento editado es recurrente */}
+      {event?.recurring_rule_id && (
+        <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-3 py-2">
+          <RotateCcw size={13} />
+          Generado por regla recurrente #{event.recurring_rule_id}. Edita la regla desde Configuración → Recurrentes.
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

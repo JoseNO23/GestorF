@@ -6,6 +6,7 @@ import ExpensesPage from '../features/expenses/ExpensesPage';
 import DebtsPage from '../features/debts/DebtsPage';
 import ChartsPage from '../features/charts/ChartsPage';
 import SettingsPage from '../features/settings/SettingsPage';
+import CreditCardsPage from '../features/creditcards/CreditCardsPage';
 
 export const router = createHashRouter([
   {
@@ -17,6 +18,7 @@ export const router = createHashRouter([
       { path: 'ingresos', element: <IncomePage /> },
       { path: 'gastos', element: <ExpensesPage /> },
       { path: 'deudas', element: <DebtsPage /> },
+      { path: 'tarjetas', element: <CreditCardsPage /> },
       { path: 'graficas', element: <ChartsPage /> },
       { path: 'configuracion', element: <SettingsPage /> },
     ],

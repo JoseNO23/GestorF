@@ -6,7 +6,7 @@ use crate::{
         accounts_repo::{self, Account, CreateAccountInput},
         settings_repo::{
             self, Category, CreateCategoryInput, CreatePaymentMethodInput, CreateStatusInput,
-            PaymentMethod, StatusWithRules, UpsertStatusRulesInput,
+            CreditCardBalance, PaymentMethod, Status, StatusWithRules, UpsertStatusRulesInput,
         },
     },
 };
@@ -31,10 +31,28 @@ pub async fn create_category(
 }
 
 #[tauri::command]
-pub async fn archive_category(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
-    settings_repo::archive_category(&pool, id)
+pub async fn update_category(
+    pool: State<'_, DbPool>,
+    id: i64,
+    input: CreateCategoryInput,
+) -> Result<Category, String> {
+    settings_repo::update_category(&pool, id, input)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn toggle_category(pool: State<'_, DbPool>, id: i64, enabled: bool) -> Result<(), String> {
+    settings_repo::toggle_category(&pool, id, enabled)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_category(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    settings_repo::delete_category(&pool, id)
+        .await
+        .map_err(|_| "No se puede eliminar: la categoría está en uso. Deshabilitala en su lugar.".to_string())
 }
 
 // ── Estados ───────────────────────────────────────────────────────────────────
@@ -52,8 +70,19 @@ pub async fn list_statuses_with_rules(
 pub async fn create_status(
     pool: State<'_, DbPool>,
     input: CreateStatusInput,
-) -> Result<crate::repositories::settings_repo::Status, String> {
+) -> Result<Status, String> {
     settings_repo::create_status(&pool, input)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_status(
+    pool: State<'_, DbPool>,
+    id: i64,
+    input: CreateStatusInput,
+) -> Result<Status, String> {
+    settings_repo::update_status(&pool, id, input)
         .await
         .map_err(|e| e.to_string())
 }
@@ -109,10 +138,28 @@ pub async fn create_payment_method(
 }
 
 #[tauri::command]
-pub async fn archive_payment_method(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
-    settings_repo::archive_payment_method(&pool, id)
+pub async fn update_payment_method(
+    pool: State<'_, DbPool>,
+    id: i64,
+    input: CreatePaymentMethodInput,
+) -> Result<PaymentMethod, String> {
+    settings_repo::update_payment_method(&pool, id, input)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn toggle_payment_method(pool: State<'_, DbPool>, id: i64, enabled: bool) -> Result<(), String> {
+    settings_repo::toggle_payment_method(&pool, id, enabled)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_payment_method(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    settings_repo::delete_payment_method(&pool, id)
+        .await
+        .map_err(|_| "No se puede eliminar: el método está en uso. Deshabilitalo en su lugar.".to_string())
 }
 
 // ── Cuentas ───────────────────────────────────────────────────────────────────
@@ -130,6 +177,43 @@ pub async fn create_account(
     input: CreateAccountInput,
 ) -> Result<Account, String> {
     accounts_repo::create_account(&pool, input)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_account(
+    pool: State<'_, DbPool>,
+    id: i64,
+    input: CreateAccountInput,
+) -> Result<Account, String> {
+    accounts_repo::update_account(&pool, id, input)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn toggle_account(pool: State<'_, DbPool>, id: i64, enabled: bool) -> Result<(), String> {
+    accounts_repo::toggle_account(&pool, id, enabled)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_account(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    accounts_repo::delete_account(&pool, id)
+        .await
+        .map_err(|_| "No se puede eliminar: la cuenta está en uso. Deshabilitala en su lugar.".to_string())
+}
+
+// ── Tarjetas de crédito ───────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn list_credit_card_balances(
+    pool: State<'_, DbPool>,
+    period_id: i64,
+) -> Result<Vec<CreditCardBalance>, String> {
+    settings_repo::list_credit_card_balances(&pool, period_id)
         .await
         .map_err(|e| e.to_string())
 }

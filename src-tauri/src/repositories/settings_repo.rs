@@ -23,12 +23,12 @@ pub struct CreateCategoryInput {
     pub scope: String,
 }
 
+/// Devuelve TODAS las categorías (activas y archivadas). El frontend separa.
 pub async fn list_categories(pool: &DbPool) -> Result<Vec<Category>, sqlx::Error> {
     sqlx::query_as::<_, Category>(
         "SELECT id, name, color, scope, archived_at
          FROM categories
-         WHERE archived_at IS NULL
-         ORDER BY name",
+         ORDER BY archived_at, name",
     )
     .fetch_all(pool)
     .await
@@ -46,7 +46,6 @@ pub async fn create_category(
     .bind(&input.scope)
     .execute(pool)
     .await?;
-
     let id = result.last_insert_rowid();
     sqlx::query_as::<_, Category>(
         "SELECT id, name, color, scope, archived_at FROM categories WHERE id = ?",
@@ -56,11 +55,33 @@ pub async fn create_category(
     .await
 }
 
-pub async fn archive_category(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE categories SET archived_at = datetime('now') WHERE id = ?")
-        .bind(id)
-        .execute(pool)
-        .await?;
+pub async fn update_category(
+    pool: &DbPool,
+    id: i64,
+    input: CreateCategoryInput,
+) -> Result<Category, sqlx::Error> {
+    sqlx::query("UPDATE categories SET name = ?, color = ?, scope = ? WHERE id = ?")
+        .bind(&input.name).bind(&input.color).bind(&input.scope).bind(id)
+        .execute(pool).await?;
+    sqlx::query_as::<_, Category>(
+        "SELECT id, name, color, scope, archived_at FROM categories WHERE id = ?",
+    )
+    .bind(id).fetch_one(pool).await
+}
+
+pub async fn toggle_category(pool: &DbPool, id: i64, enabled: bool) -> Result<(), sqlx::Error> {
+    let sql = if enabled {
+        "UPDATE categories SET archived_at = NULL WHERE id = ?"
+    } else {
+        "UPDATE categories SET archived_at = datetime('now') WHERE id = ?"
+    };
+    sqlx::query(sql).bind(id).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn delete_category(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM categories WHERE id = ?")
+        .bind(id).execute(pool).await?;
     Ok(())
 }
 
@@ -179,6 +200,20 @@ pub async fn delete_status(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+pub async fn update_status(
+    pool: &DbPool,
+    id: i64,
+    input: CreateStatusInput,
+) -> Result<Status, sqlx::Error> {
+    sqlx::query("UPDATE statuses SET name = ?, color = ?, sort_order = ? WHERE id = ?")
+        .bind(&input.name).bind(&input.color).bind(input.sort_order).bind(id)
+        .execute(pool).await?;
+    sqlx::query_as::<_, Status>(
+        "SELECT id, name, color, sort_order, archived_at FROM statuses WHERE id = ?",
+    )
+    .bind(id).fetch_one(pool).await
+}
+
 pub async fn create_status(
     pool: &DbPool,
     input: CreateStatusInput,
@@ -269,7 +304,21 @@ pub struct PaymentMethod {
     pub kind: String, // "cash" | "debit" | "credit" | "transfer" | "other"
     pub asset_account_id: Option<i64>,
     pub liability_account_id: Option<i64>,
+    pub credit_limit_minor: i64,
+    pub cut_day: Option<i64>,
+    pub payment_due_day: Option<i64>,
     pub archived_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct CreditCardBalance {
+    pub id: i64,
+    pub name: String,
+    pub credit_limit_minor: i64,
+    pub cut_day: Option<i64>,
+    pub payment_due_day: Option<i64>,
+    pub balance_used_minor: i64,
+    pub available_minor: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -278,15 +327,43 @@ pub struct CreatePaymentMethodInput {
     pub kind: String,
     pub asset_account_id: Option<i64>,
     pub liability_account_id: Option<i64>,
+    pub credit_limit_minor: Option<i64>,
+    pub cut_day: Option<i64>,
+    pub payment_due_day: Option<i64>,
 }
 
+const SELECT_PAYMENT_METHOD: &str =
+    "SELECT id, name, kind, asset_account_id, liability_account_id,
+            credit_limit_minor, cut_day, payment_due_day, archived_at
+     FROM payment_methods";
+
+/// Devuelve TODOS los métodos (activos y archivados). El frontend separa.
 pub async fn list_payment_methods(pool: &DbPool) -> Result<Vec<PaymentMethod>, sqlx::Error> {
-    sqlx::query_as::<_, PaymentMethod>(
-        "SELECT id, name, kind, asset_account_id, liability_account_id, archived_at
-         FROM payment_methods
-         WHERE archived_at IS NULL
-         ORDER BY name",
+    sqlx::query_as::<_, PaymentMethod>(&format!(
+        "{SELECT_PAYMENT_METHOD} ORDER BY archived_at, name"
+    ))
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn list_credit_card_balances(
+    pool: &DbPool,
+    period_id: i64,
+) -> Result<Vec<CreditCardBalance>, sqlx::Error> {
+    sqlx::query_as::<_, CreditCardBalance>(
+        "SELECT pm.id, pm.name, pm.credit_limit_minor, pm.cut_day, pm.payment_due_day,
+                COALESCE(SUM(fe.amount_minor), 0) AS balance_used_minor,
+                MAX(pm.credit_limit_minor - COALESCE(SUM(fe.amount_minor), 0), 0) AS available_minor
+         FROM payment_methods pm
+         LEFT JOIN financial_events fe
+               ON fe.payment_method_id = pm.id
+              AND fe.period_id = ?
+              AND fe.type IN ('expense', 'debt_charge')
+         WHERE pm.kind = 'credit' AND pm.archived_at IS NULL
+         GROUP BY pm.id
+         ORDER BY pm.name",
     )
+    .bind(period_id)
     .fetch_all(pool)
     .await
 }
@@ -296,30 +373,57 @@ pub async fn create_payment_method(
     input: CreatePaymentMethodInput,
 ) -> Result<PaymentMethod, sqlx::Error> {
     let result = sqlx::query(
-        "INSERT INTO payment_methods (name, kind, asset_account_id, liability_account_id)
-         VALUES (?, ?, ?, ?)",
+        "INSERT INTO payment_methods
+            (name, kind, asset_account_id, liability_account_id,
+             credit_limit_minor, cut_day, payment_due_day)
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .bind(&input.name)
-    .bind(&input.kind)
-    .bind(input.asset_account_id)
-    .bind(input.liability_account_id)
-    .execute(pool)
-    .await?;
-
+    .bind(&input.name).bind(&input.kind)
+    .bind(input.asset_account_id).bind(input.liability_account_id)
+    .bind(input.credit_limit_minor.unwrap_or(0))
+    .bind(input.cut_day).bind(input.payment_due_day)
+    .execute(pool).await?;
     let id = result.last_insert_rowid();
-    sqlx::query_as::<_, PaymentMethod>(
-        "SELECT id, name, kind, asset_account_id, liability_account_id, archived_at
-         FROM payment_methods WHERE id = ?",
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await
+    sqlx::query_as::<_, PaymentMethod>(&format!(
+        "{SELECT_PAYMENT_METHOD} WHERE id = ?"
+    ))
+    .bind(id).fetch_one(pool).await
 }
 
-pub async fn archive_payment_method(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE payment_methods SET archived_at = datetime('now') WHERE id = ?")
-        .bind(id)
-        .execute(pool)
-        .await?;
+pub async fn update_payment_method(
+    pool: &DbPool,
+    id: i64,
+    input: CreatePaymentMethodInput,
+) -> Result<PaymentMethod, sqlx::Error> {
+    sqlx::query(
+        "UPDATE payment_methods SET name = ?, kind = ?,
+         asset_account_id = ?, liability_account_id = ?,
+         credit_limit_minor = ?, cut_day = ?, payment_due_day = ?
+         WHERE id = ?",
+    )
+    .bind(&input.name).bind(&input.kind)
+    .bind(input.asset_account_id).bind(input.liability_account_id)
+    .bind(input.credit_limit_minor.unwrap_or(0))
+    .bind(input.cut_day).bind(input.payment_due_day).bind(id)
+    .execute(pool).await?;
+    sqlx::query_as::<_, PaymentMethod>(&format!(
+        "{SELECT_PAYMENT_METHOD} WHERE id = ?"
+    ))
+    .bind(id).fetch_one(pool).await
+}
+
+pub async fn toggle_payment_method(pool: &DbPool, id: i64, enabled: bool) -> Result<(), sqlx::Error> {
+    let sql = if enabled {
+        "UPDATE payment_methods SET archived_at = NULL WHERE id = ?"
+    } else {
+        "UPDATE payment_methods SET archived_at = datetime('now') WHERE id = ?"
+    };
+    sqlx::query(sql).bind(id).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn delete_payment_method(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM payment_methods WHERE id = ?")
+        .bind(id).execute(pool).await?;
     Ok(())
 }

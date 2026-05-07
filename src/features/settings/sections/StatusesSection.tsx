@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X } from 'lucide-react';
 import * as cmd from '../../../domain-client/commands';
 import type { StatusRuleRow, StatusWithRules } from '../../../domain-client/types';
 
@@ -269,39 +269,82 @@ function StatusRow({
   togglePending: boolean;
   isDisabled?: boolean;
 }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ name: sw.status.name, color: sw.status.color, sort_order: sw.status.sort_order });
+
+  const updateMutation = useMutation({
+    mutationFn: () => cmd.updateStatus(sw.status.id, form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['statuses'] }); setEditing(false); },
+  });
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        {/* Expand */}
-        <button onClick={onToggleExpand} className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-slate-50 -mx-1 px-1 rounded transition-colors">
-          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sw.status.color }} />
-          <span className={`text-sm font-medium truncate ${isDisabled ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-            {sw.status.name}
-          </span>
-          {sw.rules.length === 0 && !isDisabled && (
-            <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">Sin reglas</span>
-          )}
-          {expanded
-            ? <ChevronDown size={14} className="text-slate-400 shrink-0 ml-auto" />
-            : <ChevronRight size={14} className="text-slate-400 shrink-0 ml-auto" />
-          }
-        </button>
-
-        {/* Toggle habilitar/deshabilitar */}
-        <ToggleSwitch on={!isDisabled} onChange={onToggle} disabled={togglePending} />
-
-        {/* Eliminar */}
-        <button
-          onClick={onDelete}
-          className="p-1 text-slate-300 hover:text-red-500 transition-colors shrink-0"
-          title="Eliminar permanentemente"
+      {editing ? (
+        <form
+          onSubmit={(e) => { e.preventDefault(); updateMutation.mutate(); }}
+          className="flex items-center gap-2 px-3 py-2"
         >
-          <Trash2 size={14} />
-        </button>
-      </div>
+          <input
+            required autoFocus
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="flex-1 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <div className="flex items-center gap-1">
+            {DEFAULT_COLORS.map((c) => (
+              <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
+                className={`w-4 h-4 rounded-full transition-transform ${form.color === c ? 'scale-125 ring-2 ring-offset-1 ring-indigo-500' : ''}`}
+                style={{ backgroundColor: c }} />
+            ))}
+          </div>
+          <input
+            type="number" min="0"
+            value={form.sort_order}
+            onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
+            className="w-14 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            title="Orden"
+          />
+          <button type="submit" disabled={updateMutation.isPending}
+            className="p-1 text-indigo-600 hover:text-indigo-800 disabled:opacity-50" title="Guardar">
+            <Check size={14} />
+          </button>
+          <button type="button" onClick={() => { setEditing(false); setForm({ name: sw.status.name, color: sw.status.color, sort_order: sw.status.sort_order }); }}
+            className="p-1 text-slate-400 hover:text-slate-600" title="Cancelar">
+            <X size={14} />
+          </button>
+        </form>
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          {/* Expand rules */}
+          <button onClick={onToggleExpand} className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-slate-50 -mx-1 px-1 rounded transition-colors">
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: sw.status.color }} />
+            <span className={`text-sm font-medium truncate ${isDisabled ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+              {sw.status.name}
+            </span>
+            {sw.rules.length === 0 && !isDisabled && (
+              <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">Sin reglas</span>
+            )}
+            {expanded
+              ? <ChevronDown size={14} className="text-slate-400 shrink-0 ml-auto" />
+              : <ChevronRight size={14} className="text-slate-400 shrink-0 ml-auto" />
+            }
+          </button>
+
+          <button onClick={() => setEditing(true)}
+            className="p-1 text-slate-300 hover:text-indigo-500 transition-colors shrink-0" title="Editar">
+            <Pencil size={13} />
+          </button>
+          <ToggleSwitch on={!isDisabled} onChange={onToggle} disabled={togglePending} />
+          <button onClick={onDelete}
+            className="p-1 text-slate-300 hover:text-red-500 transition-colors shrink-0" title="Eliminar permanentemente">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Reglas expandidas */}
-      {expanded && <RulesForm sw={sw} />}
+      {!editing && expanded && <RulesForm sw={sw} />}
     </div>
   );
 }

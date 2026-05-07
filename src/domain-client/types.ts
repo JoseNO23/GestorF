@@ -38,8 +38,28 @@ export interface FinancialEventRow {
   parent_event_id: number | null;
   exclude_from_total: boolean;
   notes: string | null;
+  recurring_rule_id: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface RecurringRule {
+  id: number;
+  event_type: 'income' | 'expense';
+  title: string;
+  amount_minor: number;
+  frequency: 'monthly' | 'biweekly' | 'weekly' | 'custom';
+  day_of_month: number | null;
+  interval_days: number | null;
+  category_id: number | null;
+  payment_method_id: number | null;
+  default_status_id: number | null;
+  starts_on: string;
+  ends_on: string | null;
+  remind_days_before: number | null;
+  notes: string | null;
+  archived_at: string | null;
+  created_at: string;
 }
 
 export interface Category {
@@ -80,7 +100,20 @@ export interface PaymentMethod {
   kind: 'cash' | 'debit' | 'credit' | 'transfer' | 'other';
   asset_account_id: number | null;
   liability_account_id: number | null;
+  credit_limit_minor: number;
+  cut_day: number | null;
+  payment_due_day: number | null;
   archived_at: string | null;
+}
+
+export interface CreditCardBalance {
+  id: number;
+  name: string;
+  credit_limit_minor: number;
+  cut_day: number | null;
+  payment_due_day: number | null;
+  balance_used_minor: number;
+  available_minor: number;
 }
 
 export interface Account {
@@ -106,6 +139,7 @@ export interface CreateEventInput {
   parent_event_id?: number;
   exclude_from_total: boolean;
   notes?: string;
+  recurring_rule_id?: number;
 }
 
 export interface UpdateEventInput {

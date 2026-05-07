@@ -4,6 +4,7 @@ import {
   TrendingUp,
   TrendingDown,
   CreditCard,
+  Wallet,
   BarChart2,
   Settings,
 } from 'lucide-react';
@@ -13,7 +14,8 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/ingresos', label: 'Ingresos', icon: TrendingUp },
   { path: '/gastos', label: 'Gastos', icon: TrendingDown },
-  { path: '/deudas', label: 'Deudas', icon: CreditCard },
+  { path: '/deudas', label: 'Deudas', icon: Wallet },
+  { path: '/tarjetas', label: 'Tarjetas TC', icon: CreditCard },
   { path: '/graficas', label: 'Gráficas', icon: BarChart2 },
 ];
 

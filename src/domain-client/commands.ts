@@ -6,11 +6,13 @@ import type {
   Account,
   Category,
   CreateEventInput,
+  CreditCardBalance,
   DashboardData,
   FinancialEventRow,
   PaymentMethod,
   Period,
   PeriodEvolution,
+  RecurringRule,
   StatusWithRules,
   UpdateEventInput,
   UpsertStatusRulesInput,
@@ -63,8 +65,14 @@ export const listCategories = () =>
 export const createCategory = (input: { name: string; color: string; scope: string }) =>
   invoke<Category>('create_category', { input });
 
-export const archiveCategory = (id: number) =>
-  invoke<void>('archive_category', { id });
+export const updateCategory = (id: number, input: { name: string; color: string; scope: string }) =>
+  invoke<Category>('update_category', { id, input });
+
+export const toggleCategory = (id: number, enabled: boolean) =>
+  invoke<void>('toggle_category', { id, enabled });
+
+export const deleteCategory = (id: number) =>
+  invoke<void>('delete_category', { id });
 
 // ── Configuración — estados ────────────────────────────────────────────────────
 
@@ -73,6 +81,9 @@ export const listStatusesWithRules = () =>
 
 export const createStatus = (input: { name: string; color: string; sort_order: number }) =>
   invoke<StatusWithRules['status']>('create_status', { input });
+
+export const updateStatus = (id: number, input: { name: string; color: string; sort_order: number }) =>
+  invoke<StatusWithRules['status']>('update_status', { id, input });
 
 export const upsertStatusRules = (statusId: number, input: UpsertStatusRulesInput) =>
   invoke<void>('upsert_status_rules', { statusId, input });
@@ -88,15 +99,30 @@ export const deleteStatus = (id: number) =>
 export const listPaymentMethods = () =>
   invoke<PaymentMethod[]>('list_payment_methods');
 
-export const createPaymentMethod = (input: {
+export interface PaymentMethodInput {
   name: string;
   kind: string;
   asset_account_id?: number;
   liability_account_id?: number;
-}) => invoke<PaymentMethod>('create_payment_method', { input });
+  credit_limit_minor?: number;
+  cut_day?: number;
+  payment_due_day?: number;
+}
 
-export const archivePaymentMethod = (id: number) =>
-  invoke<void>('archive_payment_method', { id });
+export const createPaymentMethod = (input: PaymentMethodInput) =>
+  invoke<PaymentMethod>('create_payment_method', { input });
+
+export const updatePaymentMethod = (id: number, input: PaymentMethodInput) =>
+  invoke<PaymentMethod>('update_payment_method', { id, input });
+
+export const listCreditCardBalances = (periodId: number) =>
+  invoke<CreditCardBalance[]>('list_credit_card_balances', { periodId });
+
+export const togglePaymentMethod = (id: number, enabled: boolean) =>
+  invoke<void>('toggle_payment_method', { id, enabled });
+
+export const deletePaymentMethod = (id: number) =>
+  invoke<void>('delete_payment_method', { id });
 
 // ── Configuración — cuentas ───────────────────────────────────────────────────
 
@@ -108,3 +134,51 @@ export const createAccount = (input: {
   kind: string;
   opening_balance_minor: number;
 }) => invoke<Account>('create_account', { input });
+
+export const updateAccount = (id: number, input: {
+  name: string;
+  kind: string;
+  opening_balance_minor: number;
+}) => invoke<Account>('update_account', { id, input });
+
+export const toggleAccount = (id: number, enabled: boolean) =>
+  invoke<void>('toggle_account', { id, enabled });
+
+export const deleteAccount = (id: number) =>
+  invoke<void>('delete_account', { id });
+
+// ── Reglas recurrentes ────────────────────────────────────────────────────────
+
+export interface CreateRecurringRuleInput {
+  event_type: string;
+  title: string;
+  amount_minor: number;
+  frequency: string;
+  day_of_month?: number;
+  interval_days?: number;
+  category_id?: number;
+  payment_method_id?: number;
+  default_status_id?: number;
+  starts_on: string;
+  ends_on?: string;
+  remind_days_before?: number;
+  notes?: string;
+}
+
+export const listRecurringRules = () =>
+  invoke<RecurringRule[]>('list_recurring_rules');
+
+export const createRecurringRule = (input: CreateRecurringRuleInput) =>
+  invoke<RecurringRule>('create_recurring_rule', { input });
+
+export const updateRecurringRule = (id: number, input: CreateRecurringRuleInput) =>
+  invoke<RecurringRule>('update_recurring_rule', { id, input });
+
+export const toggleRecurringRule = (id: number, enabled: boolean) =>
+  invoke<void>('toggle_recurring_rule', { id, enabled });
+
+export const deleteRecurringRule = (id: number) =>
+  invoke<void>('delete_recurring_rule', { id });
+
+export const generateRecurringEvents = (periodId: number) =>
+  invoke<number>('generate_recurring_events', { periodId });
