@@ -45,7 +45,28 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 13 — Pantalla Gastos
+**Próximo step:** Step 14 — Pantalla Ingresos
+
+---
+
+### ✅ Step 13 completado — 2026-05-07
+
+**Qué se hizo:**
+- `Modal.tsx`: componente reutilizable con cierre por Escape y click fuera
+- `ExpenseForm`: todos los campos (título, monto, fecha, estado, categoría, método, padre TC, excluir, notas)
+  - Validaciones: título requerido, monto > 0, estado requerido
+  - Candidatos a padre: solo raíces del período (sin hijos propios)
+- `ExpenseTable`: árbol padre/hijo con └─ visual, badge "excluido", total del mes
+  - Acciones hover: editar, eliminar con confirmación
+  - Status badge con color dinámico del estado
+- `ExpensesPage`: filtros cliente (estado, categoría), modal para crear/editar
+
+**Verificación:**
+```
+npm run build → ✅ built in 4.10s
+```
+
+**Próximo step:** Step 14 — Pantalla Ingresos
 
 ---
 
@@ -292,7 +313,7 @@ cargo check → ✅ Finished en 2s
 | 10 | Commands Tauri (API para React) | ✅ |
 | 11 | AppShell (layout base) | ✅ |
 | 12 | Pantalla Configuración | ✅ |
-| 13 | Pantalla Gastos | ⏳ |
+| 13 | Pantalla Gastos | ✅ |
 | 14 | Pantalla Ingresos | ⏳ |
 | 15 | Dashboard | ⏳ |
 | 16 | Deudas | ⏳ |
