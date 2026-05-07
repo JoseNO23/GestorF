@@ -4,7 +4,7 @@ use sqlx::FromRow;
 use crate::db::connection::DbPool;
 use crate::domain::{
     credit_card::PaymentMethodKind,
-    event_rules::{EventType, RulesMap},
+    event_rules::EventType,
     projections::EventForCalc,
 };
 

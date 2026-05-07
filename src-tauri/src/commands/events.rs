@@ -59,7 +59,7 @@ pub async fn update_event(
 /// Verifica que el padre no tenga a su vez un padre (máximo un nivel de anidamiento).
 async fn validate_parent_depth(
     pool: &crate::db::connection::DbPool,
-    event_id: i64,
+    _event_id: i64,
     parent_id: i64,
 ) -> Result<(), String> {
     let parent = events_repo::get_event(pool, parent_id)

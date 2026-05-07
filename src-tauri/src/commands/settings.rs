@@ -84,7 +84,7 @@ pub async fn toggle_status(
 pub async fn delete_status(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
     settings_repo::delete_status(&pool, id)
         .await
-        .map_err(|e| "No se puede eliminar: el estado está en uso por movimientos existentes. Deshabilitalo en su lugar.".to_string())
+        .map_err(|_| "No se puede eliminar: el estado está en uso por movimientos existentes. Deshabilitalo en su lugar.".to_string())
 }
 
 // ── Métodos de pago ───────────────────────────────────────────────────────────
