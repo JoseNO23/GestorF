@@ -21,6 +21,23 @@ export function formatMoneyCompact(minor: number): string {
   return formatMoney(minor);
 }
 
+/** Parsea input del usuario "10.50" → 1050 centavos. */
+export function parseMoneyInput(s: string): number {
+  const clean = s.replace(/,/g, '').trim();
+  if (!clean || isNaN(Number(clean))) return 0;
+  const [intPart, decPart = ''] = clean.split('.');
+  const intVal = parseInt(intPart || '0', 10) || 0;
+  const decStr = decPart.padEnd(2, '0').slice(0, 2);
+  const decVal = parseInt(decStr, 10) || 0;
+  return intVal * 100 + decVal;
+}
+
+/** Devuelve el valor en soles para mostrar en un input ("10.50"). */
+export function minorToInputStr(minor: number): string {
+  const abs = Math.abs(minor);
+  return `${Math.floor(abs / 100)}.${(abs % 100).toString().padStart(2, '0')}`;
+}
+
 export const MONTHS_ES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',

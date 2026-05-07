@@ -45,7 +45,28 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 12 — Pantalla Configuración
+**Próximo step:** Step 13 — Pantalla Gastos
+
+---
+
+### ✅ Step 12 completado — 2026-05-07
+
+**Qué se hizo:**
+- `utils/money.ts`: `parseMoneyInput()` y `minorToInputStr()`
+- `SettingsPage`: tabs (Cuentas / Métodos de pago / Categorías / Estados)
+- `AccountsSection`: CRUD cuentas con tipo (activo/pasivo/por cobrar) y saldo inicial
+- `PaymentMethodsSection`: CRUD métodos, tipo crédito vinculable a cuenta pasivo
+- `CategoriesSection`: CRUD con color picker + scope badge + archivar
+- `StatusesSection`: CRUD estados + 6 switches de reglas expandibles por estado
+  - `RulesForm`: checkboxes para affects_real, available, future, counts_as_paid, creates_alert, exclude_default
+  - Upsert automático con `applies_to = 'all'`
+
+**Verificación:**
+```
+npm run build → ✅ built in 3.82s
+```
+
+**Próximo step:** Step 13 — Pantalla Gastos
 
 ---
 
@@ -270,7 +291,7 @@ cargo check → ✅ Finished en 2s
 | 9 | Repositories (acceso a datos) | ✅ |
 | 10 | Commands Tauri (API para React) | ✅ |
 | 11 | AppShell (layout base) | ✅ |
-| 12 | Pantalla Configuración | ⏳ |
+| 12 | Pantalla Configuración | ✅ |
 | 13 | Pantalla Gastos | ⏳ |
 | 14 | Pantalla Ingresos | ⏳ |
 | 15 | Dashboard | ⏳ |
