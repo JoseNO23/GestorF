@@ -77,6 +77,12 @@ export const createStatus = (input: { name: string; color: string; sort_order: n
 export const upsertStatusRules = (statusId: number, input: UpsertStatusRulesInput) =>
   invoke<void>('upsert_status_rules', { statusId, input });
 
+export const toggleStatus = (id: number, enabled: boolean) =>
+  invoke<void>('toggle_status', { id, enabled });
+
+export const deleteStatus = (id: number) =>
+  invoke<void>('delete_status', { id });
+
 // ── Configuración — métodos de pago ───────────────────────────────────────────
 
 export const listPaymentMethods = () =>

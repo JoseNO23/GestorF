@@ -125,7 +125,15 @@ pub async fn list_statuses(pool: &DbPool) -> Result<Vec<Status>, sqlx::Error> {
 pub async fn list_statuses_with_rules(
     pool: &DbPool,
 ) -> Result<Vec<StatusWithRules>, sqlx::Error> {
-    let statuses = list_statuses(pool).await?;
+    // Devuelve TODOS los estados (habilitados y deshabilitados).
+    // El frontend decide cuáles mostrar en cada contexto.
+    let statuses = sqlx::query_as::<_, Status>(
+        "SELECT id, name, color, sort_order, archived_at
+         FROM statuses
+         ORDER BY sort_order, name",
+    )
+    .fetch_all(pool)
+    .await?;
     let rules = sqlx::query_as::<_, StatusRuleRow>(
         "SELECT status_id, applies_to, counts_as_paid, affects_real,
                 affects_available, affects_future, creates_alert, exclude_from_total_default
@@ -146,6 +154,29 @@ pub async fn list_statuses_with_rules(
             StatusWithRules { status: s, rules }
         })
         .collect())
+}
+
+/// Habilita (enabled=true) o deshabilita (enabled=false) un estado.
+/// Los estados deshabilitados no aparecen en formularios pero sus reglas
+/// y referencias históricas en eventos se conservan intactas.
+pub async fn toggle_status(pool: &DbPool, id: i64, enabled: bool) -> Result<(), sqlx::Error> {
+    let sql = if enabled {
+        "UPDATE statuses SET archived_at = NULL WHERE id = ?"
+    } else {
+        "UPDATE statuses SET archived_at = datetime('now') WHERE id = ?"
+    };
+    sqlx::query(sql).bind(id).execute(pool).await?;
+    Ok(())
+}
+
+/// Elimina un estado permanentemente.
+/// Falla con FK constraint si algún evento lo está usando.
+pub async fn delete_status(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM statuses WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 pub async fn create_status(

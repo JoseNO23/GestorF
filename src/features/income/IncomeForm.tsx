@@ -95,7 +95,7 @@ export default function IncomeForm({ periodId, event, onClose }: Props) {
           <label className={label}>Estado *</label>
           <select required value={form.status_id} onChange={set('status_id')} className={field}>
             <option value="">— Seleccionar —</option>
-            {statuses.map((sw) => (
+            {statuses.filter((sw) => !sw.status.archived_at).map((sw) => (
               <option key={sw.status.id} value={sw.status.id}>{sw.status.name}</option>
             ))}
           </select>

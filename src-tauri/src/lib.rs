@@ -11,8 +11,8 @@ use commands::{
     periods::{close_period, get_active_period, list_periods, set_active_period},
     settings::{
         archive_category, archive_payment_method, create_account, create_category,
-        create_payment_method, create_status, list_accounts, list_categories,
-        list_payment_methods, list_statuses_with_rules, upsert_status_rules,
+        create_payment_method, create_status, delete_status, list_accounts, list_categories,
+        list_payment_methods, list_statuses_with_rules, toggle_status, upsert_status_rules,
     },
 };
 
@@ -48,6 +48,8 @@ pub fn run() {
             // settings — estados
             list_statuses_with_rules,
             create_status,
+            toggle_status,
+            delete_status,
             upsert_status_rules,
             // settings — métodos de pago
             list_payment_methods,

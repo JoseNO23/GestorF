@@ -74,7 +74,7 @@ function DebtForm({ periodId, event, onClose }: { periodId: number; event?: Fina
           <label className={l}>Estado *</label>
           <select required value={form.status_id} onChange={set('status_id')} className={f}>
             <option value="">— Seleccionar —</option>
-            {statuses.map((sw) => <option key={sw.status.id} value={sw.status.id}>{sw.status.name}</option>)}
+            {statuses.filter((sw) => !sw.status.archived_at).map((sw) => <option key={sw.status.id} value={sw.status.id}>{sw.status.name}</option>)}
           </select>
         </div>
       </div>

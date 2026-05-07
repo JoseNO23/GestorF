@@ -81,7 +81,7 @@ export default function ExpensesPage() {
       <div className="flex items-center gap-3 mb-4">
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
           <option value="">Todos los estados</option>
-          {statuses.map((sw) => (
+          {statuses.filter((sw) => !sw.status.archived_at).map((sw) => (
             <option key={sw.status.id} value={sw.status.id}>{sw.status.name}</option>
           ))}
         </select>

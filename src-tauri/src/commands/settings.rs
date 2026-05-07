@@ -69,6 +69,24 @@ pub async fn upsert_status_rules(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn toggle_status(
+    pool: State<'_, DbPool>,
+    id: i64,
+    enabled: bool,
+) -> Result<(), String> {
+    settings_repo::toggle_status(&pool, id, enabled)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_status(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    settings_repo::delete_status(&pool, id)
+        .await
+        .map_err(|e| "No se puede eliminar: el estado está en uso por movimientos existentes. Deshabilitalo en su lugar.".to_string())
+}
+
 // ── Métodos de pago ───────────────────────────────────────────────────────────
 
 #[tauri::command]
