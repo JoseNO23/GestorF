@@ -45,7 +45,32 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 8 — tests de integración (`cargo test` completo)
+**Próximo step:** Step 9 — Repositories
+
+---
+
+### ✅ Step 8 completado — 2026-05-06
+
+**Qué se hizo:**
+- Ejecutado `cargo test` completo sobre todos los módulos del dominio
+- Verificados los 8 casos obligatorios del roadmap
+
+**Casos verificados:**
+1. Ingreso OK aumenta dinero real ✅
+2. Gasto OK reduce dinero real ✅
+3. Gasto pendiente afecta futuro, no real ✅
+4. Gasto separado afecta disponible ✅
+5. Gasto vencido genera alerta ✅
+6. Hijo TC excluido no duplica total ✅
+7. Pago TC reduce real sin duplicar gasto ✅
+8. Dinero disponible no incluye ingresos pendientes ✅
+
+**Verificación:**
+```
+cargo test → 60/60 ok. 0 failed.
+```
+
+**Próximo step:** Step 9 — Repositories
 
 ---
 
@@ -177,7 +202,7 @@ cargo check → ✅ Finished en 2s
 | 5 | `domain/event_rules.rs` — reglas de estados | ✅ |
 | 6 | `domain/credit_card.rs` — lógica TC | ✅ |
 | 7 | `domain/projections.rs` — cálculos principales | ✅ |
-| 8 | Tests de cálculo — `cargo test` verde | ⏳ |
+| 8 | Tests de cálculo — `cargo test` verde | ✅ |
 | 9 | Repositories (acceso a datos) | ⏳ |
 | 10 | Commands Tauri (API para React) | ⏳ |
 | 11 | AppShell (layout base) | ⏳ |
