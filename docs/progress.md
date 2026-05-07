@@ -45,7 +45,28 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 7 — `domain/projections.rs`
+**Próximo step:** Step 8 — tests de integración (`cargo test` completo)
+
+---
+
+### ✅ Step 7 completado — 2026-05-06
+
+**Qué se hizo:**
+- `EventForCalc`: struct para cálculos (sin campos de presentación)
+- `calc_dinero_real(events, rules_map, opening_balance)`: suma realizados, excluye TC
+- `calc_dinero_disponible(events, rules_map, opening_balance)`: real - compromisos pendientes
+- `calc_dinero_futuro(events, rules_map, opening_balance)`: real + proyectados pendientes
+- `calc_total_ingresos` / `calc_total_gastos`: totales del período sin hijos excluidos
+- `count_vencidos(events, rules_map, today)`: due_date < today y no pagado
+- Los 3 flujos de dinero convergen sin double-counting
+
+**Verificación:**
+```
+cargo test domain::projections → 17/17 ok
+```
+Total acumulado del dominio: 8 + 20 + 15 + 17 = **60 tests verdes**
+
+**Próximo step:** Step 8 — tests de integración (`cargo test` completo)
 
 ---
 
@@ -155,7 +176,7 @@ cargo check → ✅ Finished en 2s
 | 4 | `domain/money.rs` — montos en centavos | ✅ |
 | 5 | `domain/event_rules.rs` — reglas de estados | ✅ |
 | 6 | `domain/credit_card.rs` — lógica TC | ✅ |
-| 7 | `domain/projections.rs` — cálculos principales | ⏳ |
+| 7 | `domain/projections.rs` — cálculos principales | ✅ |
 | 8 | Tests de cálculo — `cargo test` verde | ⏳ |
 | 9 | Repositories (acceso a datos) | ⏳ |
 | 10 | Commands Tauri (API para React) | ⏳ |
