@@ -45,7 +45,27 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 10 — Commands Tauri
+**Próximo step:** Step 11 — AppShell (UI base)
+
+---
+
+### ✅ Step 10 completado — 2026-05-06
+
+**Qué se hizo:**
+- `commands/dashboard.rs`: `get_dashboard(period_id)` → DashboardData con 7 KPIs calculados
+- `commands/events.rs`: `list_events`, `get_event`, `create_event`, `update_event`, `delete_event`
+- `commands/settings.rs`: CRUD categorías, estados+reglas, métodos, cuentas (11 commands)
+- `commands/periods.rs`: `get_active_period` (auto-crea mes actual si no hay ninguno), `set_active_period`, `list_periods`, `close_period`
+- 21 commands registrados en `lib.rs` con `generate_handler!`
+- React nunca toca SQLite directamente — todo pasa por estos commands
+
+**Verificación:**
+```
+cargo check → Finished en 4s
+cargo test  → 60/60 ok, sin regresiones
+```
+
+**Próximo step:** Step 11 — AppShell (UI base)
 
 ---
 
@@ -223,7 +243,7 @@ cargo check → ✅ Finished en 2s
 | 7 | `domain/projections.rs` — cálculos principales | ✅ |
 | 8 | Tests de cálculo — `cargo test` verde | ✅ |
 | 9 | Repositories (acceso a datos) | ✅ |
-| 10 | Commands Tauri (API para React) | ⏳ |
+| 10 | Commands Tauri (API para React) | ✅ |
 | 11 | AppShell (layout base) | ⏳ |
 | 12 | Pantalla Configuración | ⏳ |
 | 13 | Pantalla Gastos | ⏳ |
