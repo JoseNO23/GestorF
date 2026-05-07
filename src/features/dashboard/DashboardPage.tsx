@@ -42,7 +42,7 @@ function RecentRow({ event }: { event: FinancialEventRow }) {
 export default function DashboardPage() {
   const { data: period } = useQuery({ queryKey: ['active-period'], queryFn: cmd.getActivePeriod });
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboard', period?.id],
     queryFn: () => cmd.getDashboard(period!.id),
     enabled: !!period,
@@ -53,7 +53,16 @@ export default function DashboardPage() {
   }
 
   if (isError || !data) {
-    return <div className="p-6 text-sm text-red-500">Error al cargar el dashboard.</div>;
+    return (
+      <div className="p-6 space-y-2">
+        <p className="text-sm font-medium text-red-600">Error al cargar el dashboard.</p>
+        {error && (
+          <pre className="text-xs text-red-500 bg-red-50 rounded p-3 whitespace-pre-wrap break-all">
+            {String(error)}
+          </pre>
+        )}
+      </div>
+    );
   }
 
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];

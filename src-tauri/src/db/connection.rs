@@ -2,7 +2,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
     SqlitePool,
 };
-use std::{fs, str::FromStr};
+use std::fs;
 use tauri::Manager;
 
 pub type DbPool = SqlitePool;
@@ -13,13 +13,13 @@ pub async fn init(app: &tauri::App) -> Result<DbPool, Box<dyn std::error::Error>
 
     let db_path = app_dir.join("gestermoney.db");
 
-    let connect_options = SqliteConnectOptions::from_str(&format!(
-        "sqlite:{}",
-        db_path.to_string_lossy()
-    ))?
-    .create_if_missing(true)
-    .foreign_keys(true)
-    .journal_mode(SqliteJournalMode::Wal);
+    // Usar .filename() en vez de URL string evita problemas con rutas Windows
+    // (backslashes en "sqlite:C:\..." son inválidos en formato URL).
+    let connect_options = SqliteConnectOptions::new()
+        .filename(&db_path)
+        .create_if_missing(true)
+        .foreign_keys(true)
+        .journal_mode(SqliteJournalMode::Wal);
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
