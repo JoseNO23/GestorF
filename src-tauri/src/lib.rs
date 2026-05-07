@@ -6,7 +6,7 @@ mod repositories;
 use tauri::Manager;
 
 use commands::{
-    dashboard::get_dashboard,
+    dashboard::{get_dashboard, get_evolution},
     events::{create_event, delete_event, get_event, list_events, update_event},
     periods::{close_period, get_active_period, list_periods, set_active_period},
     settings::{
@@ -29,6 +29,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // dashboard
             get_dashboard,
+            get_evolution,
             // events
             list_events,
             get_event,

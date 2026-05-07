@@ -53,6 +53,7 @@ pub struct CreateEventInput {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateEventInput {
+    pub event_type: Option<String>, // si None, conserva el tipo existente
     pub title: String,
     pub amount_minor: i64,
     pub event_date: String,
@@ -146,12 +147,14 @@ pub async fn update_event(
 ) -> Result<FinancialEventRow, sqlx::Error> {
     sqlx::query(
         "UPDATE financial_events SET
+            type = COALESCE(?, type),
             title = ?, amount_minor = ?, event_date = ?, due_date = ?,
             status_id = ?, category_id = ?, payment_method_id = ?,
             parent_event_id = ?, exclude_from_total = ?, notes = ?,
             updated_at = datetime('now')
          WHERE id = ?",
     )
+    .bind(&input.event_type)
     .bind(&input.title)
     .bind(input.amount_minor)
     .bind(&input.event_date)

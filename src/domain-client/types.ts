@@ -109,6 +109,7 @@ export interface CreateEventInput {
 }
 
 export interface UpdateEventInput {
+  event_type?: string; // si se omite, conserva el tipo existente en DB
   title: string;
   amount_minor: number;
   event_date: string;
@@ -119,6 +120,13 @@ export interface UpdateEventInput {
   parent_event_id?: number;
   exclude_from_total: boolean;
   notes?: string;
+}
+
+export interface PeriodEvolution {
+  year: number;
+  month: number;
+  total_ingresos: number;
+  total_gastos: number;
 }
 
 export interface UpsertStatusRulesInput {

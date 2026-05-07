@@ -74,6 +74,8 @@ pub fn calc_dinero_real(
 
 /// Dinero disponible: dinero real menos compromisos pendientes.
 /// No incluye ingresos pendientes — solo resta obligaciones no liquidadas.
+/// Contrato: disponible = real - obligaciones. Los ingresos (Income, Receivable)
+/// NUNCA se suman aquí aunque su estado tenga affects_available=true.
 pub fn calc_dinero_disponible(
     events: &[EventForCalc],
     rules_map: &RulesMap,
@@ -86,6 +88,10 @@ pub fn calc_dinero_disponible(
         };
         // Saltar eventos ya contados en dinero real
         if rules.affects_real || rules.counts_as_paid {
+            continue;
+        }
+        // Solo obligaciones (gastos, deudas): los ingresos no reducen disponible
+        if matches!(event.event_type, EventType::Income | EventType::Receivable) {
             continue;
         }
         if should_affect_available(event.event_type, rules, event.is_excluded()) {
@@ -434,5 +440,24 @@ mod tests {
         let mut e = evento_vencido(1, 10000, "2026-04-01");
         e.status_id = PAGADO; // pagado → counts_as_paid=true → no vence
         assert_eq!(count_vencidos(&[e], &rules, "2026-05-04"), 0);
+    }
+
+    // ── regresión: disponible no incluye ingresos aunque estado tenga affects_available ──
+
+    #[test]
+    fn ingreso_con_affects_available_no_incrementa_disponible() {
+        let rules = build_rules_map();
+        // SEPARADO tiene affects_available=true; un ingreso NO debe sumarse al disponible
+        let events = vec![evento(1, EventType::Income, 100000, SEPARADO)];
+        let disp = calc_dinero_disponible(&events, &rules, Money::ZERO);
+        assert_eq!(disp.to_minor(), 0);
+    }
+
+    #[test]
+    fn receivable_con_affects_available_no_incrementa_disponible() {
+        let rules = build_rules_map();
+        let events = vec![evento(1, EventType::Receivable, 50000, SEPARADO)];
+        let disp = calc_dinero_disponible(&events, &rules, Money::ZERO);
+        assert_eq!(disp.to_minor(), 0);
     }
 }

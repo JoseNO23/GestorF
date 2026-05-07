@@ -93,14 +93,20 @@ pub async fn close_period(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
 }
 
 pub async fn get_active_period(pool: &DbPool) -> Result<Option<Period>, sqlx::Error> {
-    sqlx::query_as::<_, Period>(
-        "SELECT p.id, p.year, p.month, p.starts_on, p.ends_on, p.closed_at
-         FROM app_settings s
-         LEFT JOIN periods p ON s.active_period_id = p.id
-         WHERE s.id = 1",
-    )
-    .fetch_optional(pool)
-    .await
+    // Dos queries separados: primero el ID, luego el período.
+    // El LEFT JOIN con active_period_id=NULL devolvería columnas nulas que sqlx
+    // no puede decodificar en un Period con campos no-opcionales.
+    let row: Option<(Option<i64>,)> =
+        sqlx::query_as("SELECT active_period_id FROM app_settings WHERE id = 1")
+            .fetch_optional(pool)
+            .await?;
+
+    let period_id = match row {
+        Some((Some(id),)) => id,
+        _ => return Ok(None),
+    };
+
+    get_period(pool, period_id).await
 }
 
 pub async fn set_active_period(pool: &DbPool, period_id: i64) -> Result<(), sqlx::Error> {

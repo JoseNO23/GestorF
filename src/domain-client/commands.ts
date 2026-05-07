@@ -10,6 +10,7 @@ import type {
   FinancialEventRow,
   PaymentMethod,
   Period,
+  PeriodEvolution,
   StatusWithRules,
   UpdateEventInput,
   UpsertStatusRulesInput,
@@ -19,6 +20,9 @@ import type {
 
 export const getDashboard = (periodId: number) =>
   invoke<DashboardData>('get_dashboard', { period_id: periodId });
+
+export const getEvolution = (months: number) =>
+  invoke<PeriodEvolution[]>('get_evolution', { months });
 
 // ── Períodos ──────────────────────────────────────────────────────────────────
 

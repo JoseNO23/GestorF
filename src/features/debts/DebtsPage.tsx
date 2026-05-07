@@ -42,7 +42,7 @@ function DebtForm({ periodId, event, onClose }: { periodId: number; event?: Fina
         notes: form.notes.trim() || undefined,
       };
       return event
-        ? cmd.updateEvent(event.id, base)
+        ? cmd.updateEvent(event.id, { event_type: form.event_type, ...base })
         : cmd.createEvent({ period_id: periodId, event_type: form.event_type, ...base });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); onClose(); },
