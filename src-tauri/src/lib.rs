@@ -1,5 +1,6 @@
 mod db;
 mod domain;
+mod repositories;
 
 use tauri::Manager;
 

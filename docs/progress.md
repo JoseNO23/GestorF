@@ -45,7 +45,26 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 9 — Repositories
+**Próximo step:** Step 10 — Commands Tauri
+
+---
+
+### ✅ Step 9 completado — 2026-05-06
+
+**Qué se hizo:**
+- `periods_repo`: `get_or_create_period`, `list_periods`, `close_period`, `get_active_period`, `set_active_period`
+- `accounts_repo`: `list_accounts`, `create_account`, `archive_account`, `get_asset_opening_balance`
+- `settings_repo`: CRUD de categorías, estados+reglas, métodos de pago; `load_rules_map` → `RulesMap` del dominio
+- `events_repo`: `list_events`, `get_event`, `create_event`, `update_event`, `delete_event`, `list_events_for_calc`
+- `list_events_for_calc`: JOIN con payment_methods → convierte rows a `EventForCalc` del dominio
+- `upsert_status_rules`: INSERT OR UPDATE con `ON CONFLICT` para actualizar switches sin borrar
+
+**Verificación:**
+```
+cargo check → Finished en 27s. Sin errores.
+```
+
+**Próximo step:** Step 10 — Commands Tauri
 
 ---
 
@@ -203,7 +222,7 @@ cargo check → ✅ Finished en 2s
 | 6 | `domain/credit_card.rs` — lógica TC | ✅ |
 | 7 | `domain/projections.rs` — cálculos principales | ✅ |
 | 8 | Tests de cálculo — `cargo test` verde | ✅ |
-| 9 | Repositories (acceso a datos) | ⏳ |
+| 9 | Repositories (acceso a datos) | ✅ |
 | 10 | Commands Tauri (API para React) | ⏳ |
 | 11 | AppShell (layout base) | ⏳ |
 | 12 | Pantalla Configuración | ⏳ |
