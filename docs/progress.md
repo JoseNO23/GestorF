@@ -45,7 +45,37 @@ npm run build   → ✅ built in 745ms
 cargo check     → ✅ Finished en 18s
 ```
 
-**Próximo step:** Step 14 — Pantalla Ingresos
+**MVP completado ✅ — 2026-05-07**
+
+---
+
+### ✅ Steps 14–17 completados — 2026-05-07
+
+**Step 14 — Ingresos:**
+- `IncomeForm`: título, monto, fecha, estado, categoría, método, fecha esperada, notas
+- `IncomePage`: tabla con total verde, acciones editar/eliminar, modal
+
+**Step 15 — Dashboard:**
+- 3 KPIs principales: dinero real, disponible, futuro
+- 2 KPIs de flujo: ingresos vs gastos del mes
+- Banner de alertas vencidas
+- 10 movimientos recientes con signo +/-
+
+**Step 16 — Deudas:**
+- Dos grupos: Por pagar / Por cobrar
+- `DebtForm` inline (tipo, monto, estado, vencimiento)
+- Totales por grupo
+
+**Step 17 — Gráficas:**
+- Barras horizontales proporcionales: Ingresos vs Gastos
+- Desglose de gastos por categoría con % y color
+- Empty states reales cuando no hay datos
+
+**Verificación:**
+```
+npm run build → ✅ built in 4.09s, 1823 módulos
+cargo test    → 60/60 ok (dominio intacto)
+```
 
 ---
 
@@ -314,7 +344,7 @@ cargo check → ✅ Finished en 2s
 | 11 | AppShell (layout base) | ✅ |
 | 12 | Pantalla Configuración | ✅ |
 | 13 | Pantalla Gastos | ✅ |
-| 14 | Pantalla Ingresos | ⏳ |
-| 15 | Dashboard | ⏳ |
-| 16 | Deudas | ⏳ |
-| 17 | Gráficas básicas | ⏳ |
+| 14 | Pantalla Ingresos | ✅ |
+| 15 | Dashboard | ✅ |
+| 16 | Deudas | ✅ |
+| 17 | Gráficas básicas | ✅ |
