@@ -19,7 +19,7 @@ import type {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export const getDashboard = (periodId: number) =>
-  invoke<DashboardData>('get_dashboard', { period_id: periodId });
+  invoke<DashboardData>('get_dashboard', { periodId });
 
 export const getEvolution = (months: number) =>
   invoke<PeriodEvolution[]>('get_evolution', { months });
@@ -41,7 +41,7 @@ export const closePeriod = (id: number) =>
 // ── Eventos ───────────────────────────────────────────────────────────────────
 
 export const listEvents = (periodId: number) =>
-  invoke<FinancialEventRow[]>('list_events', { period_id: periodId });
+  invoke<FinancialEventRow[]>('list_events', { periodId });
 
 export const getEvent = (id: number) =>
   invoke<FinancialEventRow | null>('get_event', { id });
@@ -75,7 +75,7 @@ export const createStatus = (input: { name: string; color: string; sort_order: n
   invoke<StatusWithRules['status']>('create_status', { input });
 
 export const upsertStatusRules = (statusId: number, input: UpsertStatusRulesInput) =>
-  invoke<void>('upsert_status_rules', { status_id: statusId, input });
+  invoke<void>('upsert_status_rules', { statusId, input });
 
 // ── Configuración — métodos de pago ───────────────────────────────────────────
 
