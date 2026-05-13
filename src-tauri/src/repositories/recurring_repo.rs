@@ -12,6 +12,7 @@ pub struct RecurringRule {
     pub event_type: String,
     pub title: String,
     pub amount_minor: i64,
+    pub amount_type: String,    // "fixed" | "variable"
     pub frequency: String,
     pub day_of_month: Option<i64>,
     pub interval_days: Option<i64>,
@@ -31,6 +32,7 @@ pub struct CreateRecurringRuleInput {
     pub event_type: String,
     pub title: String,
     pub amount_minor: i64,
+    pub amount_type: Option<String>, // "fixed" | "variable"; default "fixed"
     pub frequency: String,
     pub day_of_month: Option<i64>,
     pub interval_days: Option<i64>,
@@ -46,7 +48,7 @@ pub struct CreateRecurringRuleInput {
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
 const SELECT_RULE: &str =
-    "SELECT id, event_type, title, amount_minor, frequency, day_of_month, interval_days,
+    "SELECT id, event_type, title, amount_minor, amount_type, frequency, day_of_month, interval_days,
             category_id, payment_method_id, default_status_id,
             starts_on, ends_on, remind_days_before, notes, archived_at, created_at
      FROM recurring_rules";
@@ -73,16 +75,18 @@ pub async fn create_recurring_rule(
     pool: &DbPool,
     input: CreateRecurringRuleInput,
 ) -> Result<RecurringRule, sqlx::Error> {
+    let amount_type = input.amount_type.as_deref().unwrap_or("fixed");
     let result = sqlx::query(
         "INSERT INTO recurring_rules
-            (event_type, title, amount_minor, frequency, day_of_month, interval_days,
+            (event_type, title, amount_minor, amount_type, frequency, day_of_month, interval_days,
              category_id, payment_method_id, default_status_id,
              starts_on, ends_on, remind_days_before, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&input.event_type)
     .bind(&input.title)
     .bind(input.amount_minor)
+    .bind(amount_type)
     .bind(&input.frequency)
     .bind(input.day_of_month)
     .bind(input.interval_days)
@@ -107,9 +111,10 @@ pub async fn update_recurring_rule(
     id: i64,
     input: CreateRecurringRuleInput,
 ) -> Result<RecurringRule, sqlx::Error> {
+    let amount_type = input.amount_type.as_deref().unwrap_or("fixed");
     sqlx::query(
         "UPDATE recurring_rules SET
-            event_type = ?, title = ?, amount_minor = ?, frequency = ?,
+            event_type = ?, title = ?, amount_minor = ?, amount_type = ?, frequency = ?,
             day_of_month = ?, interval_days = ?,
             category_id = ?, payment_method_id = ?, default_status_id = ?,
             starts_on = ?, ends_on = ?, remind_days_before = ?, notes = ?
@@ -118,6 +123,7 @@ pub async fn update_recurring_rule(
     .bind(&input.event_type)
     .bind(&input.title)
     .bind(input.amount_minor)
+    .bind(amount_type)
     .bind(&input.frequency)
     .bind(input.day_of_month)
     .bind(input.interval_days)
@@ -359,24 +365,26 @@ pub async fn generate_for_period(
             }
         };
 
+        let is_variable = rule.amount_type == "variable";
         sqlx::query(
             "INSERT INTO financial_events
                 (period_id, type, title, amount_minor, expected_amount_minor,
                  event_date, due_date, status_id, category_id, payment_method_id,
-                 exclude_from_total, recurring_rule_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+                 exclude_from_total, recurring_rule_id, requires_amount_confirmation)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
         )
         .bind(period_id)
         .bind(&rule.event_type)
         .bind(&rule.title)
         .bind(rule.amount_minor)
-        .bind(rule.amount_minor) // expected_amount_minor = monto de la regla
+        .bind(rule.amount_minor) // expected_amount_minor = estimado de la regla
         .bind(&event_date_str)
         .bind(&event_date_str) // due_date = día esperado
         .bind(status_id)
         .bind(rule.category_id)
         .bind(rule.payment_method_id)
         .bind(rule.id)
+        .bind(is_variable) // variables requieren confirmación del monto real
         .execute(pool)
         .await?;
 

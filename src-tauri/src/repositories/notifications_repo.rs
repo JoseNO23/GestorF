@@ -397,6 +397,51 @@ pub async fn list_notifications(pool: &DbPool) -> Result<Vec<NotificationItem>, 
         });
     }
 
+    // ── 7. Recurrentes variables con monto sin confirmar ─────────────────────
+    #[derive(FromRow)]
+    struct VarRow { id: i64, title: String, event_date: String, event_type: String }
+
+    let var_rows: Vec<VarRow> = sqlx::query_as(&format!(
+        "SELECT fe.id, fe.title, fe.event_date, fe.type AS event_type
+         FROM financial_events fe
+         JOIN periods p ON p.id = fe.period_id
+         WHERE fe.requires_amount_confirmation = 1
+           AND DATE(fe.event_date) <= DATE('now', 'localtime')
+           AND p.closed_at IS NULL
+           AND {NOT_PAID}
+           AND {NOT_EXCLUDED}
+         ORDER BY fe.event_date, fe.type"
+    ))
+    .fetch_all(pool)
+    .await?;
+
+    for row in var_rows {
+        let is_income = row.event_type == "income" || row.event_type == "receivable";
+        let notif_type = if is_income { "income_amount_pending" } else { "expense_amount_pending" };
+        let route = if is_income { "/ingresos/movimientos" } else { "/gastos/movimientos" };
+        let key = format!("{notif_type}_event_{}", row.id);
+        let (read_at, dismissed_at) = get_state(&state_map, &key);
+        if is_recently_dismissed(&dismissed_at) { continue; }
+        let message = if is_income {
+            "Confirma el monto real recibido".to_string()
+        } else {
+            "Ingresa el monto real del período".to_string()
+        };
+        items.push(NotificationItem {
+            key,
+            notif_type: notif_type.to_string(),
+            source_type: "event".to_string(),
+            source_id: row.id,
+            title: row.title,
+            message,
+            priority: "warning".to_string(),
+            due_date: Some(row.event_date),
+            route_to: route.to_string(),
+            read_at,
+            dismissed_at,
+        });
+    }
+
     // Ordenar: critical → warning → info, luego por due_date
     items.sort_by(|a, b| {
         let prio = |p: &str| match p {

@@ -157,6 +157,7 @@ function RecurringRuleCreateForm({ periodId, onClose }: { periodId: number; onCl
   const [form, setForm] = useState({
     title: '',
     amount: '',
+    amount_type: 'fixed' as 'fixed' | 'variable',
     category_id: '',
     payment_method_id: '',
     frequency: 'monthly',
@@ -197,6 +198,7 @@ function RecurringRuleCreateForm({ periodId, onClose }: { periodId: number; onCl
         event_type: 'income',
         title: form.title.trim(),
         amount_minor: amountMinor,
+        amount_type: form.amount_type,
         frequency: form.frequency,
         day_of_month: isMonthly ? Number(form.day_of_month) : undefined,
         interval_days: !isMonthly ? Number(form.interval_days) : undefined,
@@ -241,21 +243,40 @@ function RecurringRuleCreateForm({ periodId, onClose }: { periodId: number; onCl
         <input required autoFocus value={form.title} onChange={set('title')} placeholder="Ej: Sueldo mensual" className={f} />
       </div>
 
-      {/* Monto + Categoría */}
+      {/* Monto + Tipo */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={l}>Monto esperado (S/) *</label>
+          <label className={l}>{form.amount_type === 'variable' ? 'Monto estimado (S/) *' : 'Monto esperado (S/) *'}</label>
           <input required type="number" min="0.01" step="0.01" value={form.amount} onChange={set('amount')} placeholder="0.00" className={f} />
         </div>
         <div>
-          <label className={l}>Categoría</label>
-          <select value={form.category_id} onChange={set('category_id')} className={f}>
-            <option value="">— Ninguna —</option>
-            {categories.filter((c) => !c.archived_at && c.scope !== 'expense').map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+          <label className={l}>Tipo de monto</label>
+          <div className="flex gap-4 mt-1.5">
+            {(['fixed', 'variable'] as const).map((t) => (
+              <label key={t} className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                <input type="radio" name="income_amount_type" value={t}
+                  checked={form.amount_type === t}
+                  onChange={() => setForm((p) => ({ ...p, amount_type: t }))}
+                  className="accent-indigo-600" />
+                {t === 'fixed' ? 'Fijo' : 'Variable'}
+              </label>
             ))}
-          </select>
+          </div>
+          {form.amount_type === 'variable' && (
+            <p className="text-xs text-indigo-600 mt-1">Se pedirá confirmar el monto real cada período.</p>
+          )}
         </div>
+      </div>
+
+      {/* Categoría */}
+      <div>
+        <label className={l}>Categoría</label>
+        <select value={form.category_id} onChange={set('category_id')} className={f}>
+          <option value="">— Ninguna —</option>
+          {categories.filter((c) => !c.archived_at && c.scope !== 'expense').map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
       </div>
 
       {/* Método de cobro */}
@@ -350,6 +371,10 @@ function RecurringInstanceManager({ event, onClose }: { event: FinancialEventRow
   const cobradoParcialStatus = statuses.find((sw) => sw.status.system_key === 'received_partial')?.status;
   const canceladoStatus = statuses.find((sw) => sw.status.system_key === 'cancelled')?.status;
 
+  const [confirmedAmount, setConfirmedAmount] = useState(
+    minorToInputStr(event.expected_amount_minor ?? event.amount_minor)
+  );
+
   const currentStatus = statuses.find((sw) => sw.status.id === event.status_id)?.status;
   const isAlreadyCobrado = cobradoStatus && event.status_id === cobradoStatus.id;
   const isAlreadyCancelado = canceladoStatus && event.status_id === canceladoStatus.id;
@@ -365,6 +390,7 @@ function RecurringInstanceManager({ event, onClose }: { event: FinancialEventRow
       received_amount_minor?: number;
       event_date?: string;
       notes?: string;
+      requires_amount_confirmation?: boolean;
     }) => {
       return cmd.updateEvent(event.id, {
         title: event.title,
@@ -376,6 +402,7 @@ function RecurringInstanceManager({ event, onClose }: { event: FinancialEventRow
         payment_method_id: event.payment_method_id ?? undefined,
         exclude_from_total: event.exclude_from_total,
         notes: payload.notes ?? event.notes ?? undefined,
+        requires_amount_confirmation: payload.requires_amount_confirmation,
       });
     },
     onSuccess: () => {
@@ -388,26 +415,26 @@ function RecurringInstanceManager({ event, onClose }: { event: FinancialEventRow
 
   const markCobrado = () => {
     if (!cobradoStatus) return;
-    // Restaura siempre el monto esperado original, no el parcial.
     actionMutation.mutate({
       status_id: cobradoStatus.id,
       amount_minor: expectedAmount,
       received_amount_minor: expectedAmount,
       event_date: actualDate,
       notes: notes || undefined,
+      requires_amount_confirmation: false,
     });
   };
 
   const markParcial = () => {
     if (!cobradoParcialStatus) return;
     const received = parseMoneyInput(partialAmount);
-    // amount_minor = monto esperado (intacto); received_amount_minor = lo que llegó
     actionMutation.mutate({
       status_id: cobradoParcialStatus.id,
       amount_minor: expectedAmount,   // no sobreescribir el monto esperado
       received_amount_minor: received,
       event_date: actualDate,
       notes: notes || undefined,
+      requires_amount_confirmation: false, // registrar monto parcial cierra la confirmación pendiente
     });
   };
 
@@ -493,6 +520,45 @@ function RecurringInstanceManager({ event, onClose }: { event: FinancialEventRow
           </span>
         )}
       </div>
+
+      {/* Panel de confirmación de monto variable */}
+      {event.requires_amount_confirmation && !isAlreadyCobrado && !isAlreadyCancelado && (
+        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+          <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+            Confirmar monto recibido
+          </p>
+          <p className="text-xs text-indigo-600">
+            Este ingreso es variable. El estimado era <strong>S/ {minorToInputStr(event.expected_amount_minor ?? event.amount_minor)}</strong>.
+            Ingresa el monto real recibido.
+          </p>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className={l}>Monto real (S/)</label>
+              <input type="number" min="0.01" step="0.01" value={confirmedAmount}
+                onChange={(e) => setConfirmedAmount(e.target.value)} className={f} />
+            </div>
+            <button
+              type="button"
+              disabled={actionMutation.isPending || !cobradoStatus}
+              onClick={() => {
+                if (!cobradoStatus) return;
+                const real = parseMoneyInput(confirmedAmount);
+                actionMutation.mutate({
+                  status_id: cobradoStatus.id,
+                  amount_minor: real,
+                  received_amount_minor: real,
+                  event_date: actualDate,
+                  notes: notes || undefined,
+                  requires_amount_confirmation: false,
+                });
+              }}
+              className="text-sm bg-indigo-600 text-white rounded px-4 py-1.5 hover:bg-indigo-700 disabled:opacity-50 shrink-0"
+            >
+              Confirmar y cobrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Acciones operativas */}
       {!isAlreadyCobrado && !isAlreadyCancelado && (

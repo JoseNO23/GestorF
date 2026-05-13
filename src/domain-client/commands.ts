@@ -157,6 +157,7 @@ export interface CreateRecurringRuleInput {
   event_type: string;
   title: string;
   amount_minor: number;
+  amount_type?: 'fixed' | 'variable';
   frequency: string;
   day_of_month?: number;
   interval_days?: number;

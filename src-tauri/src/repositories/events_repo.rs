@@ -31,6 +31,7 @@ pub struct FinancialEventRow {
     pub recurring_rule_id: Option<i64>,
     pub purchase_id: Option<i64>,
     pub installment_number: Option<i64>,
+    pub requires_amount_confirmation: bool, // true → recurrente variable sin monto confirmado
     pub created_at: String,
     pub updated_at: String,
 }
@@ -69,6 +70,7 @@ pub struct UpdateEventInput {
     pub parent_event_id: Option<i64>,
     pub exclude_from_total: bool,
     pub notes: Option<String>,
+    pub requires_amount_confirmation: Option<bool>, // None = conserva valor existente
 }
 
 // ── Filtros ───────────────────────────────────────────────────────────────────
@@ -88,6 +90,7 @@ const SELECT_EVENT: &str = "SELECT id, period_id, type as event_type, title, amo
             source_account_id, target_account_id, liability_account_id,
             parent_event_id, exclude_from_total, notes,
             recurring_rule_id, purchase_id, installment_number,
+            requires_amount_confirmation,
             created_at, updated_at
      FROM financial_events";
 
@@ -160,6 +163,7 @@ pub async fn update_event(
             event_date = ?, due_date = ?,
             status_id = ?, category_id = ?, payment_method_id = ?,
             parent_event_id = ?, exclude_from_total = ?, notes = ?,
+            requires_amount_confirmation = COALESCE(?, requires_amount_confirmation),
             updated_at = datetime('now')
          WHERE id = ?",
     )
@@ -175,6 +179,7 @@ pub async fn update_event(
     .bind(input.parent_event_id)
     .bind(input.exclude_from_total)
     .bind(&input.notes)
+    .bind(input.requires_amount_confirmation)
     .bind(id)
     .execute(pool)
     .await?;

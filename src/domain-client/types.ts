@@ -50,6 +50,7 @@ export interface FinancialEventRow {
   recurring_rule_id: number | null;
   purchase_id: number | null;
   installment_number: number | null;
+  requires_amount_confirmation: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +99,7 @@ export interface RecurringRule {
   event_type: 'income' | 'expense';
   title: string;
   amount_minor: number;
+  amount_type: 'fixed' | 'variable';
   frequency: 'monthly' | 'biweekly' | 'weekly' | 'custom';
   day_of_month: number | null;
   interval_days: number | null;
@@ -211,6 +213,7 @@ export interface UpdateEventInput {
   parent_event_id?: number;
   exclude_from_total: boolean;
   notes?: string;
+  requires_amount_confirmation?: boolean; // omitir = conserva valor existente
 }
 
 export interface PeriodEvolution {

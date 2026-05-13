@@ -33,6 +33,7 @@ interface RuleFormData {
   event_type: string;
   title: string;
   amount: string;
+  amount_type: 'fixed' | 'variable';
   frequency: string;
   day_of_month: string;
   interval_days: string;
@@ -48,15 +49,17 @@ interface RuleFormData {
 function emptyForm(rule?: RecurringRule, defaultType?: string): RuleFormData {
   if (!rule) {
     return {
-      event_type: defaultType ?? 'expense', title: '', amount: '', frequency: 'monthly',
-      day_of_month: '1', interval_days: '14', category_id: '', payment_method_id: '',
-      default_status_id: '', starts_on: today(), ends_on: '', remind_days_before: '', notes: '',
+      event_type: defaultType ?? 'expense', title: '', amount: '', amount_type: 'fixed',
+      frequency: 'monthly', day_of_month: '1', interval_days: '14', category_id: '',
+      payment_method_id: '', default_status_id: '', starts_on: today(), ends_on: '',
+      remind_days_before: '', notes: '',
     };
   }
   return {
     event_type: rule.event_type,
     title: rule.title,
     amount: (rule.amount_minor / 100).toFixed(2),
+    amount_type: rule.amount_type ?? 'fixed',
     frequency: rule.frequency,
     day_of_month: rule.day_of_month?.toString() ?? '1',
     interval_days: rule.interval_days?.toString() ?? '14',
@@ -116,6 +119,7 @@ function RecurringRuleModal({
         event_type: form.event_type,
         title: form.title.trim(),
         amount_minor: amountMinor,
+        amount_type: form.amount_type,
         frequency: form.frequency,
         day_of_month: isMonthly ? Number(form.day_of_month) : undefined,
         interval_days: !isMonthly ? Number(form.interval_days) : undefined,
@@ -172,22 +176,43 @@ function RecurringRuleModal({
         </div>
       </div>
 
-      {/* Monto + Categoría */}
+      {/* Monto + Tipo de monto */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={l}>Monto (S/) *</label>
+          <label className={l}>{form.amount_type === 'variable' ? 'Monto estimado (S/) *' : 'Monto (S/) *'}</label>
           <input required type="number" min="0.01" step="0.01" value={form.amount}
             onChange={set('amount')} placeholder="0.00" className={f} />
         </div>
         <div>
-          <label className={l}>Categoría</label>
-          <select value={form.category_id} onChange={set('category_id')} className={f}>
-            <option value="">— Ninguna —</option>
-            {categories
-              .filter((c) => !c.archived_at && c.scope !== (isIncome ? 'expense' : 'income'))
-              .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <label className={l}>Tipo de monto</label>
+          <div className="flex gap-4 mt-1.5">
+            {(['fixed', 'variable'] as const).map((t) => (
+              <label key={t} className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                <input type="radio" name="amount_type" value={t}
+                  checked={form.amount_type === t}
+                  onChange={() => setForm((p) => ({ ...p, amount_type: t }))}
+                  className="accent-indigo-600" />
+                {t === 'fixed' ? 'Fijo' : 'Variable'}
+              </label>
+            ))}
+          </div>
+          {form.amount_type === 'variable' && (
+            <p className="text-xs text-indigo-600 mt-1">
+              Se usará como estimado. Se pedirá confirmar el monto real cada período.
+            </p>
+          )}
         </div>
+      </div>
+
+      {/* Categoría */}
+      <div>
+        <label className={l}>Categoría</label>
+        <select value={form.category_id} onChange={set('category_id')} className={f}>
+          <option value="">— Ninguna —</option>
+          {categories
+            .filter((c) => !c.archived_at && c.scope !== (isIncome ? 'expense' : 'income'))
+            .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </div>
 
       {/* Método + Recordatorio (solo gastos) */}

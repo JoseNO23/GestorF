@@ -351,6 +351,7 @@ function RecurringExpenseCreateForm({ periodId, onClose }: { periodId: number; o
   const [form, setForm] = useState({
     title: '',
     amount: '',
+    amount_type: 'fixed' as 'fixed' | 'variable',
     category_id: '',
     payment_method_id: '',
     frequency: 'monthly',
@@ -390,6 +391,7 @@ function RecurringExpenseCreateForm({ periodId, onClose }: { periodId: number; o
         event_type: 'expense',
         title: form.title.trim(),
         amount_minor: amountMinor,
+        amount_type: form.amount_type,
         frequency: form.frequency,
         day_of_month: isMonthly ? Number(form.day_of_month) : undefined,
         interval_days: !isMonthly ? Number(form.interval_days || '7') : undefined,
@@ -432,18 +434,36 @@ function RecurringExpenseCreateForm({ periodId, onClose }: { periodId: number; o
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={l}>Monto (S/) *</label>
+          <label className={l}>{form.amount_type === 'variable' ? 'Monto estimado (S/) *' : 'Monto (S/) *'}</label>
           <input required type="number" min="0.01" step="0.01" value={form.amount} onChange={set('amount')} placeholder="0.00" className={f} />
         </div>
         <div>
-          <label className={l}>Categoría</label>
-          <select value={form.category_id} onChange={set('category_id')} className={f}>
-            <option value="">— Ninguna —</option>
-            {categories.filter((c) => !c.archived_at && c.scope !== 'income').map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+          <label className={l}>Tipo de monto</label>
+          <div className="flex gap-4 mt-1.5">
+            {(['fixed', 'variable'] as const).map((t) => (
+              <label key={t} className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                <input type="radio" name="expense_amount_type" value={t}
+                  checked={form.amount_type === t}
+                  onChange={() => setForm((p) => ({ ...p, amount_type: t }))}
+                  className="accent-indigo-600" />
+                {t === 'fixed' ? 'Fijo' : 'Variable'}
+              </label>
             ))}
-          </select>
+          </div>
+          {form.amount_type === 'variable' && (
+            <p className="text-xs text-indigo-600 mt-1">Se pedirá confirmar el monto real cada período.</p>
+          )}
         </div>
+      </div>
+
+      <div>
+        <label className={l}>Categoría</label>
+        <select value={form.category_id} onChange={set('category_id')} className={f}>
+          <option value="">— Ninguna —</option>
+          {categories.filter((c) => !c.archived_at && c.scope !== 'income').map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -527,11 +547,15 @@ function RecurringExpenseInstanceManager({ event, onClose }: { event: FinancialE
   const currentStatus = statuses.find((sw) => sw.status.id === event.status_id)?.status;
   const isAlreadyPagado = pagadoStatus && event.status_id === pagadoStatus.id;
 
+  const [confirmedExpenseAmount, setConfirmedExpenseAmount] = useState(
+    minorToInputStr(event.expected_amount_minor ?? event.amount_minor)
+  );
+
   // Monto esperado = expected_amount_minor (del evento generado) o el de la regla
   const expectedAmount = event.expected_amount_minor ?? rule?.amount_minor ?? event.amount_minor;
 
   const actionMutation = useMutation({
-    mutationFn: (payload: { status_id: number; amount_minor?: number; event_date?: string; notes?: string }) =>
+    mutationFn: (payload: { status_id: number; amount_minor?: number; event_date?: string; notes?: string; requires_amount_confirmation?: boolean }) =>
       cmd.updateEvent(event.id, {
         title: event.title,
         amount_minor: payload.amount_minor ?? expectedAmount,
@@ -541,6 +565,7 @@ function RecurringExpenseInstanceManager({ event, onClose }: { event: FinancialE
         payment_method_id: event.payment_method_id ?? undefined,
         exclude_from_total: event.exclude_from_total,
         notes: payload.notes ?? event.notes ?? undefined,
+        requires_amount_confirmation: payload.requires_amount_confirmation,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['events'] });
@@ -609,10 +634,47 @@ function RecurringExpenseInstanceManager({ event, onClose }: { event: FinancialE
         )}
       </div>
 
+      {/* Panel de confirmación de monto variable */}
+      {event.requires_amount_confirmation && !isAlreadyPagado && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+            Confirmar monto real
+          </p>
+          <p className="text-xs text-amber-600">
+            Este gasto es variable. El estimado era <strong>S/ {minorToInputStr(event.expected_amount_minor ?? event.amount_minor)}</strong>.
+            Ingresa el monto real del período.
+          </p>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className={l}>Monto real (S/)</label>
+              <input type="number" min="0.01" step="0.01" value={confirmedExpenseAmount}
+                onChange={(e) => setConfirmedExpenseAmount(e.target.value)} className={f} />
+            </div>
+            <button
+              type="button"
+              disabled={actionMutation.isPending}
+              onClick={() => {
+                const real = parseMoneyInput(confirmedExpenseAmount);
+                actionMutation.mutate({
+                  status_id: event.status_id,
+                  amount_minor: real,
+                  event_date: actualDate,
+                  notes: notes || undefined,
+                  requires_amount_confirmation: false,
+                });
+              }}
+              className="text-sm bg-amber-600 text-white rounded px-4 py-1.5 hover:bg-amber-700 disabled:opacity-50 shrink-0"
+            >
+              Confirmar monto
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Acción principal */}
       {!isAlreadyPagado && (
         <button type="button"
-          onClick={() => pagadoStatus && actionMutation.mutate({ status_id: pagadoStatus.id, amount_minor: expectedAmount, event_date: actualDate, notes: notes || undefined })}
+          onClick={() => pagadoStatus && actionMutation.mutate({ status_id: pagadoStatus.id, amount_minor: expectedAmount, event_date: actualDate, notes: notes || undefined, requires_amount_confirmation: false })}
           disabled={actionMutation.isPending || !pagadoStatus}
           className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-medium rounded-lg px-4 py-2.5 hover:bg-indigo-700 disabled:opacity-50">
           <Check size={15} /> Pagado — S/ {minorToInputStr(expectedAmount)}
