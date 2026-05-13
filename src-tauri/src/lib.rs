@@ -6,21 +6,22 @@ mod repositories;
 use tauri::Manager;
 
 use commands::{
+    credit_card::{create_credit_card_purchase, list_credit_card_purchases, preview_installments},
     dashboard::{get_dashboard, get_evolution},
     events::{create_event, delete_event, get_event, list_events, update_event},
+    notifications::{list_notifications, mark_notification_dismissed, mark_notification_read},
     periods::{close_period, get_active_period, list_periods, set_active_period},
     recurring::{
-        create_recurring_rule, delete_recurring_rule, generate_recurring_events,
-        list_recurring_rules, toggle_recurring_rule, update_recurring_rule,
+        cancel_future_recurring_events, create_recurring_exception, create_recurring_rule,
+        delete_recurring_rule, generate_recurring_events, list_recurring_rules,
+        toggle_recurring_rule, update_recurring_rule,
     },
     settings::{
-        create_account, create_category, create_payment_method, create_status,
-        delete_account, delete_category, delete_payment_method, delete_status,
-        list_accounts, list_categories, list_credit_card_balances, list_payment_methods,
-        list_statuses_with_rules,
-        toggle_account, toggle_category, toggle_payment_method, toggle_status,
-        update_account, update_category, update_payment_method, update_status,
-        upsert_status_rules,
+        create_account, create_category, create_payment_method, create_status, delete_account,
+        delete_category, delete_payment_method, delete_status, list_accounts, list_categories,
+        list_credit_card_balances, list_payment_methods, list_statuses_with_rules, toggle_account,
+        toggle_category, toggle_payment_method, toggle_status, update_account, update_category,
+        update_payment_method, update_status, upsert_status_rules,
     },
 };
 
@@ -35,6 +36,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // compras TC en cuotas
+            preview_installments,
+            create_credit_card_purchase,
+            list_credit_card_purchases,
             // dashboard
             get_dashboard,
             get_evolution,
@@ -56,6 +61,8 @@ pub fn run() {
             toggle_recurring_rule,
             delete_recurring_rule,
             generate_recurring_events,
+            create_recurring_exception,
+            cancel_future_recurring_events,
             // settings — categorías
             list_categories,
             create_category,
@@ -83,6 +90,10 @@ pub fn run() {
             delete_account,
             // tarjetas de crédito
             list_credit_card_balances,
+            // notificaciones
+            list_notifications,
+            mark_notification_read,
+            mark_notification_dismissed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

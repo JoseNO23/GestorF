@@ -152,10 +152,94 @@ pub async fn toggle_recurring_rule(
 }
 
 pub async fn delete_recurring_rule(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
+    // Desligar eventos antes de borrar la regla para no violar la FK constraint.
+    // Los eventos ya generados se conservan (sin referencia a la regla).
+    sqlx::query("UPDATE financial_events SET recurring_rule_id = NULL WHERE recurring_rule_id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM recurring_exceptions WHERE rule_id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
     sqlx::query("DELETE FROM recurring_rules WHERE id = ?")
         .bind(id)
         .execute(pool)
         .await?;
+    Ok(())
+}
+
+/// Cancela los eventos futuros de una regla recurrente que aún no hayan
+/// sido cobrados/pagados. Útil al desactivar o detener una regla.
+/// - from_date: "YYYY-MM-DD" — se cancelan eventos con event_date >= from_date.
+/// - Solo afecta eventos cuyo estado NO cuenta como pagado (counts_as_paid = 0).
+/// - Si no existe el estado "Cancelado", los elimina directamente.
+pub async fn cancel_future_recurring_events(
+    pool: &DbPool,
+    rule_id: i64,
+    from_date: &str,
+) -> Result<u32, sqlx::Error> {
+    let cancelado: Option<(i64,)> = sqlx::query_as(
+        "SELECT id FROM statuses WHERE system_key = 'cancelled' AND archived_at IS NULL LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    let rows = if let Some((cid,)) = cancelado {
+        sqlx::query(
+            "UPDATE financial_events
+             SET status_id = ?, updated_at = datetime('now')
+             WHERE recurring_rule_id = ?
+               AND event_date >= ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM status_rules
+                 WHERE status_id = financial_events.status_id
+                   AND counts_as_paid = 1
+               )",
+        )
+        .bind(cid)
+        .bind(rule_id)
+        .bind(from_date)
+        .execute(pool)
+        .await?
+        .rows_affected()
+    } else {
+        sqlx::query(
+            "DELETE FROM financial_events
+             WHERE recurring_rule_id = ?
+               AND event_date >= ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM status_rules
+                 WHERE status_id = financial_events.status_id
+                   AND counts_as_paid = 1
+               )",
+        )
+        .bind(rule_id)
+        .bind(from_date)
+        .execute(pool)
+        .await?
+        .rows_affected()
+    };
+
+    Ok(rows as u32)
+}
+
+/// Registra una excepción para un período específico: el generador no creará
+/// el evento de esta regla en ese período aunque la regla esté activa.
+/// Usa INSERT OR IGNORE para que sea idempotente.
+pub async fn create_recurring_exception(
+    pool: &DbPool,
+    rule_id: i64,
+    period_id: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT OR IGNORE INTO recurring_exceptions (rule_id, period_id, reason)
+         VALUES (?, ?, 'cancelled')",
+    )
+    .bind(rule_id)
+    .bind(period_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
@@ -204,6 +288,20 @@ pub async fn generate_for_period(
     let mut created = 0u32;
 
     for rule in rules {
+        // ¿Existe una excepción explícita para este período? (cancelación por el usuario)
+        let exception: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM recurring_exceptions
+             WHERE rule_id = ? AND period_id = ?",
+        )
+        .bind(rule.id)
+        .bind(period_id)
+        .fetch_one(pool)
+        .await?;
+
+        if exception.0 > 0 {
+            continue;
+        }
+
         // ¿Ya existe un evento de esta regla en el período?
         let exists: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM financial_events
@@ -223,31 +321,58 @@ pub async fn generate_for_period(
         let event_date = NaiveDate::from_ymd_opt(year, month, dom).unwrap();
         let event_date_str = event_date.format("%Y-%m-%d").to_string();
 
-        // Estado por defecto: usar el de la regla o el primero disponible
+        // Estado por defecto: usar el de la regla o el primero compatible con el scope
         let status_id: i64 = if let Some(sid) = rule.default_status_id {
             sid
         } else {
-            let row: (i64,) = sqlx::query_as(
-                "SELECT id FROM statuses WHERE archived_at IS NULL ORDER BY sort_order LIMIT 1",
+            // Para ingresos: preferir estado de scope 'income' o 'both' con counts_as_paid=0
+            // Para gastos: el primero disponible de scope 'expense' o 'both'
+            let scope_filter = if rule.event_type == "income" {
+                "income"
+            } else {
+                "expense"
+            };
+            let row: Option<(i64,)> = sqlx::query_as(
+                "SELECT s.id FROM statuses s
+                 LEFT JOIN status_rules sr ON sr.status_id = s.id AND sr.applies_to = 'all'
+                 WHERE s.archived_at IS NULL
+                   AND (s.scope = ? OR s.scope = 'both')
+                   AND COALESCE(sr.counts_as_paid, 0) = 0
+                 ORDER BY s.sort_order
+                 LIMIT 1",
             )
-            .fetch_one(pool)
+            .bind(scope_filter)
+            .fetch_optional(pool)
             .await?;
-            row.0
+
+            match row {
+                Some(r) => r.0,
+                None => {
+                    // Fallback al primero disponible
+                    let fallback: (i64,) = sqlx::query_as(
+                        "SELECT id FROM statuses WHERE archived_at IS NULL ORDER BY sort_order LIMIT 1",
+                    )
+                    .fetch_one(pool)
+                    .await?;
+                    fallback.0
+                }
+            }
         };
 
         sqlx::query(
             "INSERT INTO financial_events
-                (period_id, type, title, amount_minor, event_date, due_date,
-                 status_id, category_id, payment_method_id, exclude_from_total,
-                 recurring_rule_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+                (period_id, type, title, amount_minor, expected_amount_minor,
+                 event_date, due_date, status_id, category_id, payment_method_id,
+                 exclude_from_total, recurring_rule_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
         )
         .bind(period_id)
         .bind(&rule.event_type)
         .bind(&rule.title)
         .bind(rule.amount_minor)
+        .bind(rule.amount_minor) // expected_amount_minor = monto de la regla
         .bind(&event_date_str)
-        .bind(&event_date_str) // due_date = mismo día por defecto
+        .bind(&event_date_str) // due_date = día esperado
         .bind(status_id)
         .bind(rule.category_id)
         .bind(rule.payment_method_id)

@@ -38,14 +38,12 @@ pub async fn create_category(
     pool: &DbPool,
     input: CreateCategoryInput,
 ) -> Result<Category, sqlx::Error> {
-    let result = sqlx::query(
-        "INSERT INTO categories (name, color, scope) VALUES (?, ?, ?)",
-    )
-    .bind(&input.name)
-    .bind(&input.color)
-    .bind(&input.scope)
-    .execute(pool)
-    .await?;
+    let result = sqlx::query("INSERT INTO categories (name, color, scope) VALUES (?, ?, ?)")
+        .bind(&input.name)
+        .bind(&input.color)
+        .bind(&input.scope)
+        .execute(pool)
+        .await?;
     let id = result.last_insert_rowid();
     sqlx::query_as::<_, Category>(
         "SELECT id, name, color, scope, archived_at FROM categories WHERE id = ?",
@@ -61,12 +59,18 @@ pub async fn update_category(
     input: CreateCategoryInput,
 ) -> Result<Category, sqlx::Error> {
     sqlx::query("UPDATE categories SET name = ?, color = ?, scope = ? WHERE id = ?")
-        .bind(&input.name).bind(&input.color).bind(&input.scope).bind(id)
-        .execute(pool).await?;
+        .bind(&input.name)
+        .bind(&input.color)
+        .bind(&input.scope)
+        .bind(id)
+        .execute(pool)
+        .await?;
     sqlx::query_as::<_, Category>(
         "SELECT id, name, color, scope, archived_at FROM categories WHERE id = ?",
     )
-    .bind(id).fetch_one(pool).await
+    .bind(id)
+    .fetch_one(pool)
+    .await
 }
 
 pub async fn toggle_category(pool: &DbPool, id: i64, enabled: bool) -> Result<(), sqlx::Error> {
@@ -81,7 +85,9 @@ pub async fn toggle_category(pool: &DbPool, id: i64, enabled: bool) -> Result<()
 
 pub async fn delete_category(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM categories WHERE id = ?")
-        .bind(id).execute(pool).await?;
+        .bind(id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
@@ -93,7 +99,9 @@ pub struct Status {
     pub name: String,
     pub color: String,
     pub sort_order: i64,
+    pub scope: String, // "income" | "expense" | "both"
     pub archived_at: Option<String>,
+    pub system_key: Option<String>, // semántica interna — NO editable por usuario
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -119,6 +127,7 @@ pub struct CreateStatusInput {
     pub name: String,
     pub color: String,
     pub sort_order: i64,
+    pub scope: Option<String>, // "income" | "expense" | "both"; default "both"
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,7 +143,7 @@ pub struct UpsertStatusRulesInput {
 
 pub async fn list_statuses(pool: &DbPool) -> Result<Vec<Status>, sqlx::Error> {
     sqlx::query_as::<_, Status>(
-        "SELECT id, name, color, sort_order, archived_at
+        "SELECT id, name, color, sort_order, scope, archived_at, system_key
          FROM statuses
          WHERE archived_at IS NULL
          ORDER BY sort_order, name",
@@ -143,13 +152,11 @@ pub async fn list_statuses(pool: &DbPool) -> Result<Vec<Status>, sqlx::Error> {
     .await
 }
 
-pub async fn list_statuses_with_rules(
-    pool: &DbPool,
-) -> Result<Vec<StatusWithRules>, sqlx::Error> {
+pub async fn list_statuses_with_rules(pool: &DbPool) -> Result<Vec<StatusWithRules>, sqlx::Error> {
     // Devuelve TODOS los estados (habilitados y deshabilitados).
     // El frontend decide cuáles mostrar en cada contexto.
     let statuses = sqlx::query_as::<_, Status>(
-        "SELECT id, name, color, sort_order, archived_at
+        "SELECT id, name, color, sort_order, scope, archived_at, system_key
          FROM statuses
          ORDER BY sort_order, name",
     )
@@ -165,7 +172,10 @@ pub async fn list_statuses_with_rules(
 
     let mut rules_by_status: HashMap<i64, Vec<StatusRuleRow>> = HashMap::new();
     for rule in rules {
-        rules_by_status.entry(rule.status_id).or_default().push(rule);
+        rules_by_status
+            .entry(rule.status_id)
+            .or_default()
+            .push(rule);
     }
 
     Ok(statuses
@@ -191,8 +201,21 @@ pub async fn toggle_status(pool: &DbPool, id: i64, enabled: bool) -> Result<(), 
 }
 
 /// Elimina un estado permanentemente.
+/// Falla si el estado tiene system_key (estado del sistema, no borrable).
 /// Falla con FK constraint si algún evento lo está usando.
-pub async fn delete_status(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
+pub async fn delete_status(pool: &DbPool, id: i64) -> Result<(), Box<dyn std::error::Error>> {
+    let row: Option<(Option<String>,)> =
+        sqlx::query_as("SELECT system_key FROM statuses WHERE id = ?")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
+
+    if let Some((Some(key),)) = row {
+        return Err(format!(
+            "El estado \"{key}\" es un estado del sistema y no puede eliminarse. Usa \"deshabilitar\" en su lugar."
+        ).into());
+    }
+
     sqlx::query("DELETE FROM statuses WHERE id = ?")
         .bind(id)
         .execute(pool)
@@ -205,31 +228,35 @@ pub async fn update_status(
     id: i64,
     input: CreateStatusInput,
 ) -> Result<Status, sqlx::Error> {
-    sqlx::query("UPDATE statuses SET name = ?, color = ?, sort_order = ? WHERE id = ?")
-        .bind(&input.name).bind(&input.color).bind(input.sort_order).bind(id)
-        .execute(pool).await?;
+    let scope = input.scope.as_deref().unwrap_or("both");
+    sqlx::query("UPDATE statuses SET name = ?, color = ?, sort_order = ?, scope = ? WHERE id = ?")
+        .bind(&input.name)
+        .bind(&input.color)
+        .bind(input.sort_order)
+        .bind(scope)
+        .bind(id)
+        .execute(pool)
+        .await?;
     sqlx::query_as::<_, Status>(
-        "SELECT id, name, color, sort_order, archived_at FROM statuses WHERE id = ?",
+        "SELECT id, name, color, sort_order, scope, archived_at, system_key FROM statuses WHERE id = ?",
     )
     .bind(id).fetch_one(pool).await
 }
 
-pub async fn create_status(
-    pool: &DbPool,
-    input: CreateStatusInput,
-) -> Result<Status, sqlx::Error> {
-    let result = sqlx::query(
-        "INSERT INTO statuses (name, color, sort_order) VALUES (?, ?, ?)",
-    )
-    .bind(&input.name)
-    .bind(&input.color)
-    .bind(input.sort_order)
-    .execute(pool)
-    .await?;
+pub async fn create_status(pool: &DbPool, input: CreateStatusInput) -> Result<Status, sqlx::Error> {
+    let scope = input.scope.as_deref().unwrap_or("both");
+    let result =
+        sqlx::query("INSERT INTO statuses (name, color, sort_order, scope) VALUES (?, ?, ?, ?)")
+            .bind(&input.name)
+            .bind(&input.color)
+            .bind(input.sort_order)
+            .bind(scope)
+            .execute(pool)
+            .await?;
 
     let id = result.last_insert_rowid();
     sqlx::query_as::<_, Status>(
-        "SELECT id, name, color, sort_order, archived_at FROM statuses WHERE id = ?",
+        "SELECT id, name, color, sort_order, scope, archived_at, system_key FROM statuses WHERE id = ?",
     )
     .bind(id)
     .fetch_one(pool)
@@ -310,15 +337,37 @@ pub struct PaymentMethod {
     pub archived_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+/// Balance de una tarjeta de crédito.
+/// current_debt = compras históricas − pagos históricos (acumulado global, no por mes).
+/// available = límite − current_debt.
+/// month_* son informativos del período visible.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditCardBalance {
     pub id: i64,
     pub name: String,
     pub credit_limit_minor: i64,
     pub cut_day: Option<i64>,
     pub payment_due_day: Option<i64>,
-    pub balance_used_minor: i64,
+    // Global (acumulado histórico)
+    pub current_debt_minor: i64,
     pub available_minor: i64,
+    // Mensual (informativo del período visible)
+    pub month_purchases_minor: i64,
+    pub month_payments_minor: i64,
+}
+
+// Struct intermedio para FromRow
+#[derive(FromRow)]
+struct CreditCardCalcRow {
+    id: i64,
+    name: String,
+    credit_limit_minor: i64,
+    cut_day: Option<i64>,
+    payment_due_day: Option<i64>,
+    total_purchases_minor: i64,
+    total_payments_minor: i64,
+    month_purchases_minor: i64,
+    month_payments_minor: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -332,8 +381,7 @@ pub struct CreatePaymentMethodInput {
     pub payment_due_day: Option<i64>,
 }
 
-const SELECT_PAYMENT_METHOD: &str =
-    "SELECT id, name, kind, asset_account_id, liability_account_id,
+const SELECT_PAYMENT_METHOD: &str = "SELECT id, name, kind, asset_account_id, liability_account_id,
             credit_limit_minor, cut_day, payment_due_day, archived_at
      FROM payment_methods";
 
@@ -346,26 +394,86 @@ pub async fn list_payment_methods(pool: &DbPool) -> Result<Vec<PaymentMethod>, s
     .await
 }
 
+/// Calcula el balance real de cada TC.
+/// La deuda es GLOBAL (acumulada en todos los períodos), no reiniciable mensualmente.
+/// - current_debt = compras históricas − pagos históricos
+/// - available    = límite − current_debt
+/// - month_*      = informativo del período visible (period_id)
 pub async fn list_credit_card_balances(
     pool: &DbPool,
     period_id: i64,
 ) -> Result<Vec<CreditCardBalance>, sqlx::Error> {
-    sqlx::query_as::<_, CreditCardBalance>(
-        "SELECT pm.id, pm.name, pm.credit_limit_minor, pm.cut_day, pm.payment_due_day,
-                COALESCE(SUM(fe.amount_minor), 0) AS balance_used_minor,
-                MAX(pm.credit_limit_minor - COALESCE(SUM(fe.amount_minor), 0), 0) AS available_minor
+    let rows = sqlx::query_as::<_, CreditCardCalcRow>(
+        "SELECT
+             pm.id,
+             pm.name,
+             pm.credit_limit_minor,
+             pm.cut_day,
+             pm.payment_due_day,
+
+             -- Global acumulado (compras de todos los períodos).
+             -- Excluye eventos cuyo estado tiene exclude_from_total_default=1 (cancelados,
+             -- devoluciones, etc.) que no representan deuda real con el banco.
+             COALESCE(SUM(CASE
+                 WHEN fe.type IN ('expense', 'debt_charge')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM status_rules sr2
+                    WHERE sr2.status_id = fe.status_id
+                      AND sr2.applies_to = 'all'
+                      AND sr2.exclude_from_total_default = 1
+                  )
+                 THEN fe.amount_minor ELSE 0 END), 0) AS total_purchases_minor,
+
+             -- Global acumulado (pagos de todos los períodos)
+             COALESCE(SUM(CASE WHEN fe.type = 'debt_payment'
+                               THEN fe.amount_minor ELSE 0 END), 0) AS total_payments_minor,
+
+             -- Compras del mes visible (informativo, mismo filtro de cancelados)
+             COALESCE(SUM(CASE
+                 WHEN fe.type IN ('expense', 'debt_charge')
+                  AND fe.period_id = ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM status_rules sr2
+                    WHERE sr2.status_id = fe.status_id
+                      AND sr2.applies_to = 'all'
+                      AND sr2.exclude_from_total_default = 1
+                  )
+                 THEN fe.amount_minor ELSE 0 END), 0) AS month_purchases_minor,
+
+             -- Pagos del mes visible (informativo)
+             COALESCE(SUM(CASE WHEN fe.type = 'debt_payment'
+                                AND fe.period_id = ?
+                               THEN fe.amount_minor ELSE 0 END), 0) AS month_payments_minor
+
          FROM payment_methods pm
-         LEFT JOIN financial_events fe
-               ON fe.payment_method_id = pm.id
-              AND fe.period_id = ?
-              AND fe.type IN ('expense', 'debt_charge')
+         LEFT JOIN financial_events fe ON fe.payment_method_id = pm.id
          WHERE pm.kind = 'credit' AND pm.archived_at IS NULL
          GROUP BY pm.id
          ORDER BY pm.name",
     )
     .bind(period_id)
+    .bind(period_id)
     .fetch_all(pool)
-    .await
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            let current_debt = r.total_purchases_minor - r.total_payments_minor;
+            let available = (r.credit_limit_minor - current_debt).max(0);
+            CreditCardBalance {
+                id: r.id,
+                name: r.name,
+                credit_limit_minor: r.credit_limit_minor,
+                cut_day: r.cut_day,
+                payment_due_day: r.payment_due_day,
+                current_debt_minor: current_debt,
+                available_minor: available,
+                month_purchases_minor: r.month_purchases_minor,
+                month_payments_minor: r.month_payments_minor,
+            }
+        })
+        .collect())
 }
 
 pub async fn create_payment_method(
@@ -378,16 +486,20 @@ pub async fn create_payment_method(
              credit_limit_minor, cut_day, payment_due_day)
          VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .bind(&input.name).bind(&input.kind)
-    .bind(input.asset_account_id).bind(input.liability_account_id)
+    .bind(&input.name)
+    .bind(&input.kind)
+    .bind(input.asset_account_id)
+    .bind(input.liability_account_id)
     .bind(input.credit_limit_minor.unwrap_or(0))
-    .bind(input.cut_day).bind(input.payment_due_day)
-    .execute(pool).await?;
+    .bind(input.cut_day)
+    .bind(input.payment_due_day)
+    .execute(pool)
+    .await?;
     let id = result.last_insert_rowid();
-    sqlx::query_as::<_, PaymentMethod>(&format!(
-        "{SELECT_PAYMENT_METHOD} WHERE id = ?"
-    ))
-    .bind(id).fetch_one(pool).await
+    sqlx::query_as::<_, PaymentMethod>(&format!("{SELECT_PAYMENT_METHOD} WHERE id = ?"))
+        .bind(id)
+        .fetch_one(pool)
+        .await
 }
 
 pub async fn update_payment_method(
@@ -401,18 +513,27 @@ pub async fn update_payment_method(
          credit_limit_minor = ?, cut_day = ?, payment_due_day = ?
          WHERE id = ?",
     )
-    .bind(&input.name).bind(&input.kind)
-    .bind(input.asset_account_id).bind(input.liability_account_id)
+    .bind(&input.name)
+    .bind(&input.kind)
+    .bind(input.asset_account_id)
+    .bind(input.liability_account_id)
     .bind(input.credit_limit_minor.unwrap_or(0))
-    .bind(input.cut_day).bind(input.payment_due_day).bind(id)
-    .execute(pool).await?;
-    sqlx::query_as::<_, PaymentMethod>(&format!(
-        "{SELECT_PAYMENT_METHOD} WHERE id = ?"
-    ))
-    .bind(id).fetch_one(pool).await
+    .bind(input.cut_day)
+    .bind(input.payment_due_day)
+    .bind(id)
+    .execute(pool)
+    .await?;
+    sqlx::query_as::<_, PaymentMethod>(&format!("{SELECT_PAYMENT_METHOD} WHERE id = ?"))
+        .bind(id)
+        .fetch_one(pool)
+        .await
 }
 
-pub async fn toggle_payment_method(pool: &DbPool, id: i64, enabled: bool) -> Result<(), sqlx::Error> {
+pub async fn toggle_payment_method(
+    pool: &DbPool,
+    id: i64,
+    enabled: bool,
+) -> Result<(), sqlx::Error> {
     let sql = if enabled {
         "UPDATE payment_methods SET archived_at = NULL WHERE id = ?"
     } else {
@@ -424,6 +545,8 @@ pub async fn toggle_payment_method(pool: &DbPool, id: i64, enabled: bool) -> Res
 
 pub async fn delete_payment_method(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM payment_methods WHERE id = ?")
-        .bind(id).execute(pool).await?;
+        .bind(id)
+        .execute(pool)
+        .await?;
     Ok(())
 }

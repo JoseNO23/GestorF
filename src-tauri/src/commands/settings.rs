@@ -42,7 +42,11 @@ pub async fn update_category(
 }
 
 #[tauri::command]
-pub async fn toggle_category(pool: State<'_, DbPool>, id: i64, enabled: bool) -> Result<(), String> {
+pub async fn toggle_category(
+    pool: State<'_, DbPool>,
+    id: i64,
+    enabled: bool,
+) -> Result<(), String> {
     settings_repo::toggle_category(&pool, id, enabled)
         .await
         .map_err(|e| e.to_string())
@@ -52,7 +56,9 @@ pub async fn toggle_category(pool: State<'_, DbPool>, id: i64, enabled: bool) ->
 pub async fn delete_category(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
     settings_repo::delete_category(&pool, id)
         .await
-        .map_err(|_| "No se puede eliminar: la categoría está en uso. Deshabilitala en su lugar.".to_string())
+        .map_err(|_| {
+            "No se puede eliminar: la categoría está en uso. Deshabilitala en su lugar.".to_string()
+        })
 }
 
 // ── Estados ───────────────────────────────────────────────────────────────────
@@ -99,11 +105,7 @@ pub async fn upsert_status_rules(
 }
 
 #[tauri::command]
-pub async fn toggle_status(
-    pool: State<'_, DbPool>,
-    id: i64,
-    enabled: bool,
-) -> Result<(), String> {
+pub async fn toggle_status(pool: State<'_, DbPool>, id: i64, enabled: bool) -> Result<(), String> {
     settings_repo::toggle_status(&pool, id, enabled)
         .await
         .map_err(|e| e.to_string())
@@ -113,15 +115,20 @@ pub async fn toggle_status(
 pub async fn delete_status(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
     settings_repo::delete_status(&pool, id)
         .await
-        .map_err(|_| "No se puede eliminar: el estado está en uso por movimientos existentes. Deshabilitalo en su lugar.".to_string())
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("estado del sistema") {
+                msg
+            } else {
+                "No se puede eliminar: el estado está en uso por movimientos existentes. Deshabilitalo en su lugar.".to_string()
+            }
+        })
 }
 
 // ── Métodos de pago ───────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn list_payment_methods(
-    pool: State<'_, DbPool>,
-) -> Result<Vec<PaymentMethod>, String> {
+pub async fn list_payment_methods(pool: State<'_, DbPool>) -> Result<Vec<PaymentMethod>, String> {
     settings_repo::list_payment_methods(&pool)
         .await
         .map_err(|e| e.to_string())
@@ -149,7 +156,11 @@ pub async fn update_payment_method(
 }
 
 #[tauri::command]
-pub async fn toggle_payment_method(pool: State<'_, DbPool>, id: i64, enabled: bool) -> Result<(), String> {
+pub async fn toggle_payment_method(
+    pool: State<'_, DbPool>,
+    id: i64,
+    enabled: bool,
+) -> Result<(), String> {
     settings_repo::toggle_payment_method(&pool, id, enabled)
         .await
         .map_err(|e| e.to_string())
@@ -159,7 +170,9 @@ pub async fn toggle_payment_method(pool: State<'_, DbPool>, id: i64, enabled: bo
 pub async fn delete_payment_method(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
     settings_repo::delete_payment_method(&pool, id)
         .await
-        .map_err(|_| "No se puede eliminar: el método está en uso. Deshabilitalo en su lugar.".to_string())
+        .map_err(|_| {
+            "No se puede eliminar: el método está en uso. Deshabilitalo en su lugar.".to_string()
+        })
 }
 
 // ── Cuentas ───────────────────────────────────────────────────────────────────
@@ -201,9 +214,9 @@ pub async fn toggle_account(pool: State<'_, DbPool>, id: i64, enabled: bool) -> 
 
 #[tauri::command]
 pub async fn delete_account(pool: State<'_, DbPool>, id: i64) -> Result<(), String> {
-    accounts_repo::delete_account(&pool, id)
-        .await
-        .map_err(|_| "No se puede eliminar: la cuenta está en uso. Deshabilitala en su lugar.".to_string())
+    accounts_repo::delete_account(&pool, id).await.map_err(|_| {
+        "No se puede eliminar: la cuenta está en uso. Deshabilitala en su lugar.".to_string()
+    })
 }
 
 // ── Tarjetas de crédito ───────────────────────────────────────────────────────

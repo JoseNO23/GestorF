@@ -271,7 +271,10 @@ mod tests {
     fn from_str_valido() {
         assert_eq!(EventType::from_str("income").unwrap(), EventType::Income);
         assert_eq!(EventType::from_str("expense").unwrap(), EventType::Expense);
-        assert_eq!(EventType::from_str("debt_payment").unwrap(), EventType::DebtPayment);
+        assert_eq!(
+            EventType::from_str("debt_payment").unwrap(),
+            EventType::DebtPayment
+        );
     }
 
     #[test]

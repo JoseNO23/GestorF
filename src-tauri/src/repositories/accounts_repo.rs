@@ -59,15 +59,13 @@ pub async fn update_account(
     id: i64,
     input: CreateAccountInput,
 ) -> Result<Account, sqlx::Error> {
-    sqlx::query(
-        "UPDATE accounts SET name = ?, kind = ?, opening_balance_minor = ? WHERE id = ?",
-    )
-    .bind(&input.name)
-    .bind(&input.kind)
-    .bind(input.opening_balance_minor)
-    .bind(id)
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE accounts SET name = ?, kind = ?, opening_balance_minor = ? WHERE id = ?")
+        .bind(&input.name)
+        .bind(&input.kind)
+        .bind(input.opening_balance_minor)
+        .bind(id)
+        .execute(pool)
+        .await?;
     sqlx::query_as::<_, Account>(
         "SELECT id, name, kind, opening_balance_minor, archived_at FROM accounts WHERE id = ?",
     )
@@ -94,13 +92,21 @@ pub async fn delete_account(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-/// Suma el saldo inicial de todas las cuentas asset activas.
-/// Es el punto de partida de dinero_real.
+/// Suma el saldo inicial de cuentas asset activas.
+/// Excluye cuentas vinculadas como pasivo de una TC para no mezclar crédito con dinero propio.
 pub async fn get_asset_opening_balance(pool: &DbPool) -> Result<i64, sqlx::Error> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COALESCE(SUM(opening_balance_minor), 0)
-         FROM accounts
-         WHERE kind = 'asset' AND archived_at IS NULL",
+        "SELECT COALESCE(SUM(a.opening_balance_minor), 0)
+         FROM accounts a
+         WHERE a.kind = 'asset'
+           AND a.archived_at IS NULL
+           -- Nunca contar cuentas que son el pasivo de una TC
+           AND a.id NOT IN (
+               SELECT liability_account_id
+               FROM payment_methods
+               WHERE kind = 'credit'
+                 AND liability_account_id IS NOT NULL
+           )",
     )
     .fetch_one(pool)
     .await?;

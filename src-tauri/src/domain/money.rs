@@ -40,9 +40,7 @@ impl Money {
                 int_val * 100 + dec_val
             }
             None => {
-                let int_val: i64 = s
-                    .parse()
-                    .map_err(|_| format!("monto inválido: {s}"))?;
+                let int_val: i64 = s.parse().map_err(|_| format!("monto inválido: {s}"))?;
                 int_val * 100
             }
         };
@@ -137,14 +135,23 @@ mod tests {
 
     #[test]
     fn suma_usa_enteros() {
-        assert_eq!((Money::from_minor(1050) + Money::from_minor(50)).to_minor(), 1100);
+        assert_eq!(
+            (Money::from_minor(1050) + Money::from_minor(50)).to_minor(),
+            1100
+        );
         assert_eq!((Money::from_minor(1) + Money::from_minor(2)).to_minor(), 3);
     }
 
     #[test]
     fn resta_puede_ser_negativa() {
-        assert_eq!((Money::from_minor(100) - Money::from_minor(150)).to_minor(), -50);
-        assert_eq!((Money::from_minor(500) - Money::from_minor(500)).to_minor(), 0);
+        assert_eq!(
+            (Money::from_minor(100) - Money::from_minor(150)).to_minor(),
+            -50
+        );
+        assert_eq!(
+            (Money::from_minor(500) - Money::from_minor(500)).to_minor(),
+            0
+        );
     }
 
     #[test]

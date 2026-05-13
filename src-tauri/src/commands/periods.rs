@@ -3,7 +3,10 @@ use tauri::State;
 
 use crate::{
     db::connection::DbPool,
-    repositories::{periods_repo::{self, Period}, recurring_repo},
+    repositories::{
+        periods_repo::{self, Period},
+        recurring_repo,
+    },
 };
 
 /// Devuelve el período activo. Si no hay ninguno configurado,

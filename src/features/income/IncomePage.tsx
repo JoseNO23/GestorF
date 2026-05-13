@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import * as cmd from '../../domain-client/commands';
 import type { FinancialEventRow } from '../../domain-client/types';
 import Modal from '../../components/Modal/Modal';
@@ -22,7 +22,15 @@ export default function IncomePage() {
 
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: cmd.listStatusesWithRules });
 
-  const incomes = allEvents.filter((e) => e.event_type === 'income' || e.event_type === 'receivable');
+  const excludedStatusIds = new Set(
+    statuses
+      .filter((sw) => sw.rules.some((r) => r.exclude_from_total_default))
+      .map((sw) => sw.status.id)
+  );
+
+  const incomes = allEvents.filter(
+    (e) => (e.event_type === 'income' || e.event_type === 'receivable') && !excludedStatusIds.has(e.status_id)
+  );
 
   const deleteMutation = useMutation({
     mutationFn: cmd.deleteEvent,
@@ -77,7 +85,12 @@ export default function IncomePage() {
             return (
               <div key={income.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 hover:bg-slate-50 group">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{income.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    {income.recurring_rule_id && (
+                      <span title="Generado por regla recurrente"><RotateCcw size={11} className="text-indigo-400 shrink-0" /></span>
+                    )}
+                    <p className="text-sm font-medium text-slate-800 truncate">{income.title}</p>
+                  </div>
                   <p className="text-xs text-slate-400 mt-0.5">{income.event_date}</p>
                 </div>
 
@@ -88,8 +101,15 @@ export default function IncomePage() {
                   </span>
                 )}
 
-                <span className="text-sm font-mono font-medium text-emerald-700 shrink-0">
-                  {formatMoney(income.amount_minor)}
+                <span className="text-sm font-mono font-medium shrink-0">
+                  {income.received_amount_minor != null && income.received_amount_minor !== income.amount_minor ? (
+                    <span className="text-amber-600">
+                      {formatMoney(income.received_amount_minor)}
+                      <span className="text-xs text-slate-400 ml-1">/ {formatMoney(income.amount_minor)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-emerald-700">{formatMoney(income.amount_minor)}</span>
+                  )}
                 </span>
 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -115,7 +135,16 @@ export default function IncomePage() {
       )}
 
       {showForm && period && (
-        <Modal title={editing ? 'Editar ingreso' : 'Registrar ingreso'} onClose={closeForm}>
+        <Modal
+          title={
+            editing?.recurring_rule_id
+              ? 'Gestionar cobro recurrente'
+              : editing
+              ? 'Editar ingreso'
+              : 'Registrar ingreso'
+          }
+          onClose={closeForm}
+        >
           <IncomeForm periodId={period.id} event={editing ?? undefined} onClose={closeForm} />
         </Modal>
       )}

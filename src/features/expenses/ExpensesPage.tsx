@@ -81,7 +81,7 @@ export default function ExpensesPage() {
       <div className="flex items-center gap-3 mb-4">
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={selectClass}>
           <option value="">Todos los estados</option>
-          {statuses.filter((sw) => !sw.status.archived_at).map((sw) => (
+          {statuses.filter((sw) => !sw.status.archived_at && sw.status.scope !== 'income').map((sw) => (
             <option key={sw.status.id} value={sw.status.id}>{sw.status.name}</option>
           ))}
         </select>
@@ -117,7 +117,7 @@ export default function ExpensesPage() {
       {/* Modal formulario */}
       {showForm && period && (
         <Modal
-          title={editing ? 'Editar gasto' : 'Nuevo gasto'}
+          title={editing?.recurring_rule_id ? 'Gestionar gasto recurrente' : editing ? 'Editar gasto' : 'Nuevo gasto'}
           onClose={closeForm}
           size="lg"
         >

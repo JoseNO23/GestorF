@@ -7,8 +7,12 @@ import type {
   Category,
   CreateEventInput,
   CreditCardBalance,
+  CreditCardPurchase,
+  CreditCardPurchaseWithProgress,
   DashboardData,
   FinancialEventRow,
+  InstallmentPreview,
+  NotificationItem,
   PaymentMethod,
   Period,
   PeriodEvolution,
@@ -79,10 +83,10 @@ export const deleteCategory = (id: number) =>
 export const listStatusesWithRules = () =>
   invoke<StatusWithRules[]>('list_statuses_with_rules');
 
-export const createStatus = (input: { name: string; color: string; sort_order: number }) =>
+export const createStatus = (input: { name: string; color: string; sort_order: number; scope?: string }) =>
   invoke<StatusWithRules['status']>('create_status', { input });
 
-export const updateStatus = (id: number, input: { name: string; color: string; sort_order: number }) =>
+export const updateStatus = (id: number, input: { name: string; color: string; sort_order: number; scope?: string }) =>
   invoke<StatusWithRules['status']>('update_status', { id, input });
 
 export const upsertStatusRules = (statusId: number, input: UpsertStatusRulesInput) =>
@@ -182,3 +186,53 @@ export const deleteRecurringRule = (id: number) =>
 
 export const generateRecurringEvents = (periodId: number) =>
   invoke<number>('generate_recurring_events', { periodId });
+
+export const createRecurringException = (ruleId: number, periodId: number) =>
+  invoke<void>('create_recurring_exception', { ruleId, periodId });
+
+export const cancelFutureRecurringEvents = (ruleId: number, fromDate: string) =>
+  invoke<number>('cancel_future_recurring_events', { ruleId, fromDate });
+
+// ── Compras en cuotas TC ──────────────────────────────────────────────────────
+
+export interface CreateCreditCardPurchaseInput {
+  payment_method_id: number;
+  title: string;
+  total_amount_minor: number;
+  installments: number;
+  interest_type: string;
+  monthly_interest_rate: number;
+  category_id?: number;
+  purchase_date: string;
+  notes?: string;
+}
+
+export const previewInstallments = (
+  totalAmountMinor: number,
+  installments: number,
+  monthlyInterestRate: number,
+) => invoke<InstallmentPreview>('preview_installments', { totalAmountMinor, installments, monthlyInterestRate });
+
+export const createCreditCardPurchase = (input: CreateCreditCardPurchaseInput) =>
+  invoke<CreditCardPurchase>('create_credit_card_purchase', { input });
+
+export const listCreditCardPurchases = (paymentMethodId?: number) =>
+  invoke<CreditCardPurchaseWithProgress[]>('list_credit_card_purchases', { paymentMethodId });
+
+// ── Notificaciones ────────────────────────────────────────────────────────────
+
+export const listNotifications = () =>
+  invoke<NotificationItem[]>('list_notifications');
+
+export const markNotificationRead = (
+  notifType: string,
+  sourceType: string,
+  sourceId: number,
+) => invoke<void>('mark_notification_read', { notifType, sourceType, sourceId });
+
+/** Descarta la alerta durante 7 días. No modifica ningún estado financiero. */
+export const markNotificationDismissed = (
+  notifType: string,
+  sourceType: string,
+  sourceId: number,
+) => invoke<void>('mark_notification_dismissed', { notifType, sourceType, sourceId });

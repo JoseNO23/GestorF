@@ -3,9 +3,7 @@ use sqlx::FromRow;
 
 use crate::db::connection::DbPool;
 use crate::domain::{
-    credit_card::PaymentMethodKind,
-    event_rules::EventType,
-    projections::EventForCalc,
+    credit_card::PaymentMethodKind, event_rules::EventType, projections::EventForCalc,
 };
 
 // ── Structs de DB ─────────────────────────────────────────────────────────────
@@ -17,6 +15,8 @@ pub struct FinancialEventRow {
     pub event_type: String,
     pub title: String,
     pub amount_minor: i64,
+    pub expected_amount_minor: Option<i64>,
+    pub received_amount_minor: Option<i64>,
     pub event_date: String,
     pub due_date: Option<String>,
     pub status_id: i64,
@@ -29,6 +29,8 @@ pub struct FinancialEventRow {
     pub exclude_from_total: bool,
     pub notes: Option<String>,
     pub recurring_rule_id: Option<i64>,
+    pub purchase_id: Option<i64>,
+    pub installment_number: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -58,6 +60,7 @@ pub struct UpdateEventInput {
     pub event_type: Option<String>, // si None, conserva el tipo existente
     pub title: String,
     pub amount_minor: i64,
+    pub received_amount_minor: Option<i64>,
     pub event_date: String,
     pub due_date: Option<String>,
     pub status_id: i64,
@@ -79,11 +82,12 @@ pub struct EventFilters {
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
-const SELECT_EVENT: &str =
-    "SELECT id, period_id, type as event_type, title, amount_minor,
+const SELECT_EVENT: &str = "SELECT id, period_id, type as event_type, title, amount_minor,
+            expected_amount_minor, received_amount_minor,
             event_date, due_date, status_id, category_id, payment_method_id,
             source_account_id, target_account_id, liability_account_id,
-            parent_event_id, exclude_from_total, notes, recurring_rule_id,
+            parent_event_id, exclude_from_total, notes,
+            recurring_rule_id, purchase_id, installment_number,
             created_at, updated_at
      FROM financial_events";
 
@@ -99,10 +103,7 @@ pub async fn list_events(
     .await
 }
 
-pub async fn get_event(
-    pool: &DbPool,
-    id: i64,
-) -> Result<Option<FinancialEventRow>, sqlx::Error> {
+pub async fn get_event(pool: &DbPool, id: i64) -> Result<Option<FinancialEventRow>, sqlx::Error> {
     sqlx::query_as::<_, FinancialEventRow>(&format!("{SELECT_EVENT} WHERE id = ?"))
         .bind(id)
         .fetch_optional(pool)
@@ -141,7 +142,9 @@ pub async fn create_event(
     .await?;
 
     let id = result.last_insert_rowid();
-    get_event(pool, id).await.map(|e| e.expect("recién insertado"))
+    get_event(pool, id)
+        .await
+        .map(|e| e.expect("recién insertado"))
 }
 
 pub async fn update_event(
@@ -152,7 +155,9 @@ pub async fn update_event(
     sqlx::query(
         "UPDATE financial_events SET
             type = COALESCE(?, type),
-            title = ?, amount_minor = ?, event_date = ?, due_date = ?,
+            title = ?, amount_minor = ?,
+            received_amount_minor = ?,
+            event_date = ?, due_date = ?,
             status_id = ?, category_id = ?, payment_method_id = ?,
             parent_event_id = ?, exclude_from_total = ?, notes = ?,
             updated_at = datetime('now')
@@ -161,6 +166,7 @@ pub async fn update_event(
     .bind(&input.event_type)
     .bind(&input.title)
     .bind(input.amount_minor)
+    .bind(input.received_amount_minor)
     .bind(&input.event_date)
     .bind(&input.due_date)
     .bind(input.status_id)
@@ -173,7 +179,9 @@ pub async fn update_event(
     .execute(pool)
     .await?;
 
-    get_event(pool, id).await.map(|e| e.expect("existe tras update"))
+    get_event(pool, id)
+        .await
+        .map(|e| e.expect("existe tras update"))
 }
 
 pub async fn delete_event(pool: &DbPool, id: i64) -> Result<(), sqlx::Error> {
@@ -192,6 +200,7 @@ struct EventCalcRow {
     id: i64,
     event_type: String,
     amount_minor: i64,
+    received_amount_minor: Option<i64>,
     status_id: i64,
     method_kind: Option<String>,
     parent_event_id: Option<i64>,
@@ -207,10 +216,11 @@ pub async fn list_events_for_calc(
 ) -> Result<Vec<EventForCalc>, sqlx::Error> {
     let rows = sqlx::query_as::<_, EventCalcRow>(
         "SELECT fe.id,
-                fe.type         AS event_type,
+                fe.type                  AS event_type,
                 fe.amount_minor,
+                fe.received_amount_minor,
                 fe.status_id,
-                pm.kind         AS method_kind,
+                pm.kind                  AS method_kind,
                 fe.parent_event_id,
                 fe.exclude_from_total,
                 fe.due_date
@@ -224,8 +234,8 @@ pub async fn list_events_for_calc(
 
     rows.into_iter()
         .map(|r| {
-            let event_type = EventType::from_str(&r.event_type)
-                .map_err(|e| sqlx::Error::Decode(e.into()))?;
+            let event_type =
+                EventType::from_str(&r.event_type).map_err(|e| sqlx::Error::Decode(e.into()))?;
             let method_kind = r
                 .method_kind
                 .as_deref()
@@ -236,6 +246,7 @@ pub async fn list_events_for_calc(
                 id: r.id,
                 event_type,
                 amount_minor: r.amount_minor,
+                received_amount_minor: r.received_amount_minor,
                 status_id: r.status_id,
                 method_kind,
                 parent_event_id: r.parent_event_id,

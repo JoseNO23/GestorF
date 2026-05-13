@@ -3,9 +3,7 @@ use tauri::State;
 use crate::{
     db::connection::DbPool,
     domain::credit_card::validate_parent_child,
-    repositories::events_repo::{
-        self, CreateEventInput, FinancialEventRow, UpdateEventInput,
-    },
+    repositories::events_repo::{self, CreateEventInput, FinancialEventRow, UpdateEventInput},
 };
 
 #[tauri::command]
@@ -31,10 +29,15 @@ pub async fn get_event(
 #[tauri::command]
 pub async fn create_event(
     pool: State<'_, DbPool>,
-    input: CreateEventInput,
+    mut input: CreateEventInput,
 ) -> Result<FinancialEventRow, String> {
     if let Some(parent_id) = input.parent_event_id {
         validate_parent_depth(&pool, 0, parent_id).await?;
+    } else {
+        // Sin padre: exclude_from_total nunca puede ser verdadero.
+        // is_excluded_child() requiere AMBAS condiciones, pero normalizamos aquí
+        // para mantener consistencia semántica en los datos almacenados.
+        input.exclude_from_total = false;
     }
     events_repo::create_event(&pool, input)
         .await
@@ -45,11 +48,13 @@ pub async fn create_event(
 pub async fn update_event(
     pool: State<'_, DbPool>,
     id: i64,
-    input: UpdateEventInput,
+    mut input: UpdateEventInput,
 ) -> Result<FinancialEventRow, String> {
     if let Some(parent_id) = input.parent_event_id {
         validate_parent_child(id, parent_id).map_err(|e| e)?;
         validate_parent_depth(&pool, id, parent_id).await?;
+    } else {
+        input.exclude_from_total = false;
     }
     events_repo::update_event(&pool, id, input)
         .await

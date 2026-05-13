@@ -43,12 +43,8 @@ impl PaymentMethodKind {
 /// Compra con TC: gasto económico que NO reduce dinero real.
 /// Solo gastos (Expense) con método de tipo crédito califican.
 /// El impacto en `affects_real` se anula en projections.rs al detectar esto.
-pub fn is_credit_purchase(
-    event_type: EventType,
-    method_kind: Option<PaymentMethodKind>,
-) -> bool {
-    event_type == EventType::Expense
-        && method_kind.map(|k| k.is_credit()).unwrap_or(false)
+pub fn is_credit_purchase(event_type: EventType, method_kind: Option<PaymentMethodKind>) -> bool {
+    event_type == EventType::Expense && method_kind.map(|k| k.is_credit()).unwrap_or(false)
 }
 
 /// Pago de deuda/TC: reduce dinero real pero NO es un nuevo gasto económico.
@@ -68,9 +64,7 @@ pub fn is_excluded_child(parent_event_id: Option<i64>, exclude_from_total: bool)
 /// donde se puede consultar el árbol completo.
 pub fn validate_parent_child(event_id: i64, parent_id: i64) -> Result<(), String> {
     if event_id == parent_id {
-        return Err(format!(
-            "el evento {event_id} no puede ser su propio padre"
-        ));
+        return Err(format!("el evento {event_id} no puede ser su propio padre"));
     }
     Ok(())
 }
@@ -84,11 +78,26 @@ mod tests {
 
     #[test]
     fn parsea_tipos_de_metodo() {
-        assert_eq!(PaymentMethodKind::from_str("cash").unwrap(), PaymentMethodKind::Cash);
-        assert_eq!(PaymentMethodKind::from_str("debit").unwrap(), PaymentMethodKind::Debit);
-        assert_eq!(PaymentMethodKind::from_str("credit").unwrap(), PaymentMethodKind::Credit);
-        assert_eq!(PaymentMethodKind::from_str("transfer").unwrap(), PaymentMethodKind::Transfer);
-        assert_eq!(PaymentMethodKind::from_str("other").unwrap(), PaymentMethodKind::Other);
+        assert_eq!(
+            PaymentMethodKind::from_str("cash").unwrap(),
+            PaymentMethodKind::Cash
+        );
+        assert_eq!(
+            PaymentMethodKind::from_str("debit").unwrap(),
+            PaymentMethodKind::Debit
+        );
+        assert_eq!(
+            PaymentMethodKind::from_str("credit").unwrap(),
+            PaymentMethodKind::Credit
+        );
+        assert_eq!(
+            PaymentMethodKind::from_str("transfer").unwrap(),
+            PaymentMethodKind::Transfer
+        );
+        assert_eq!(
+            PaymentMethodKind::from_str("other").unwrap(),
+            PaymentMethodKind::Other
+        );
     }
 
     #[test]

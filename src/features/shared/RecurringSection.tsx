@@ -57,9 +57,8 @@ export default function RecurringSection({
 
   const isMonthly = value.frequency === 'monthly';
   const title = isIncome ? 'Cobro recurrente' : 'Repetición / Planificación';
-  const switchLabel = isIncome ? 'Ingreso recurrente' : 'Gasto recurrente';
   const dayLabel = isIncome ? 'Día esperado de cobro' : 'Día del mes (1-31)';
-  const statusLabel = isIncome ? 'Estado inicial' : 'Estado al generar';
+  const statusLabel = 'Estado al generar';
 
   return (
     <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -132,14 +131,16 @@ export default function RecurringSection({
             </div>
           )}
 
-          {/* Estado */}
-          <div>
-            <label className={labelClass}>{statusLabel}</label>
-            <select value={value.default_status_id} onChange={set('default_status_id')} className={fieldClass}>
-              <option value="">— Pendiente por defecto —</option>
-              {statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
+          {/* Estado — solo gastos; ingresos siempre Pendiente */}
+          {!isIncome && (
+            <div>
+              <label className={labelClass}>{statusLabel}</label>
+              <select value={value.default_status_id} onChange={set('default_status_id')} className={fieldClass}>
+                <option value="">— Primero disponible —</option>
+                {statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Recordatorio — solo en gastos */}
           {!isIncome && (
@@ -169,8 +170,8 @@ export default function RecurringSection({
 
           {/* Nota para ingresos */}
           {isIncome && (
-            <div className="col-span-2 text-xs text-slate-400 bg-slate-50 rounded px-3 py-2">
-              El ingreso se generará como <strong>{switchLabel.split(' ')[0]}</strong> al inicio de cada período. Cámbialo a "Cobrado" cuando lo recibas.
+            <div className="col-span-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-3 py-2">
+              Se generará como <strong>Pendiente</strong> al inicio de cada período. Cámbialo a <strong>Cobrado</strong> cuando lo recibas. Un ingreso pendiente no suma al dinero disponible.
             </div>
           )}
         </div>

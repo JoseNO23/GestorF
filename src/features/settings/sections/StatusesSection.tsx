@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, Lock } from 'lucide-react';
 import * as cmd from '../../../domain-client/commands';
 import type { StatusRuleRow, StatusWithRules } from '../../../domain-client/types';
 
@@ -101,7 +101,7 @@ export default function StatusesSection() {
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string>('');
-  const [form, setForm] = useState({ name: '', color: '#10b981', sort_order: 0 });
+  const [form, setForm] = useState({ name: '', color: '#10b981', sort_order: 0, scope: 'both' });
 
   const { data: statuses = [], isLoading } = useQuery({
     queryKey: ['statuses'],
@@ -109,11 +109,11 @@ export default function StatusesSection() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => cmd.createStatus({ name: form.name.trim(), color: form.color, sort_order: form.sort_order }),
+    mutationFn: () => cmd.createStatus({ name: form.name.trim(), color: form.color, sort_order: form.sort_order, scope: form.scope }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['statuses'] });
       setShowForm(false);
-      setForm({ name: '', color: '#10b981', sort_order: 0 });
+      setForm({ name: '', color: '#10b981', sort_order: 0, scope: 'both' });
     },
   });
 
@@ -134,6 +134,10 @@ export default function StatusesSection() {
 
   const handleDelete = (sw: StatusWithRules) => {
     setDeleteError('');
+    if (sw.status.system_key) {
+      setDeleteError(`"${sw.status.name}" es un estado del sistema y no puede eliminarse. Puedes deshabilitarlo para ocultarlo de los formularios.`);
+      return;
+    }
     if (!window.confirm(`¿Eliminar el estado "${sw.status.name}" permanentemente?\n\nSi hay movimientos que lo usan, la eliminación fallará. Usa "deshabilitar" en su lugar.`)) return;
     deleteMutation.mutate(sw.status.id);
   };
@@ -159,12 +163,12 @@ export default function StatusesSection() {
       {showForm && (
         <form
           onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
-          className="mb-4 p-4 rounded-lg border border-slate-200 bg-slate-50 grid grid-cols-3 gap-3"
+          className="mb-4 p-4 rounded-lg border border-slate-200 bg-slate-50 grid grid-cols-4 gap-3"
         >
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Nombre</label>
             <input
-              required
+              required autoFocus
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Mi estado"
@@ -172,13 +176,25 @@ export default function StatusesSection() {
             />
           </div>
           <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Aplica a</label>
+            <select
+              value={form.scope}
+              onChange={(e) => setForm({ ...form, scope: e.target.value })}
+              className="w-full text-sm border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="both">Ingresos y gastos</option>
+              <option value="income">Solo ingresos</option>
+              <option value="expense">Solo gastos</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Color</label>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 mt-1">
               {DEFAULT_COLORS.map((c) => (
                 <button
                   key={c} type="button"
                   onClick={() => setForm({ ...form, color: c })}
-                  className={`w-6 h-6 rounded-full transition-transform ${form.color === c ? 'scale-125 ring-2 ring-offset-1 ring-indigo-500' : ''}`}
+                  className={`w-5 h-5 rounded-full transition-transform ${form.color === c ? 'scale-125 ring-2 ring-offset-1 ring-indigo-500' : ''}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
@@ -193,7 +209,7 @@ export default function StatusesSection() {
               className="w-full text-sm border border-slate-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <div className="col-span-3 flex justify-end gap-2">
+          <div className="col-span-4 flex justify-end gap-2">
             <button type="button" onClick={() => setShowForm(false)} className="text-sm text-slate-500 px-3 py-1.5">Cancelar</button>
             <button type="submit" disabled={createMutation.isPending}
               className="text-sm bg-indigo-600 text-white rounded px-4 py-1.5 hover:bg-indigo-700 disabled:opacity-50">
@@ -271,7 +287,10 @@ function StatusRow({
 }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: sw.status.name, color: sw.status.color, sort_order: sw.status.sort_order });
+  const [form, setForm] = useState({
+    name: sw.status.name, color: sw.status.color,
+    sort_order: sw.status.sort_order, scope: sw.status.scope,
+  });
 
   const updateMutation = useMutation({
     mutationFn: () => cmd.updateStatus(sw.status.id, form),
@@ -298,6 +317,16 @@ function StatusRow({
                 style={{ backgroundColor: c }} />
             ))}
           </div>
+          <select
+            value={form.scope}
+            onChange={(e) => setForm({ ...form, scope: e.target.value as 'both' | 'income' | 'expense' })}
+            className="text-xs border border-slate-300 rounded px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            title="Aplica a"
+          >
+            <option value="both">Ambos</option>
+            <option value="income">Ingreso</option>
+            <option value="expense">Gasto</option>
+          </select>
           <input
             type="number" min="0"
             value={form.sort_order}
@@ -309,7 +338,7 @@ function StatusRow({
             className="p-1 text-indigo-600 hover:text-indigo-800 disabled:opacity-50" title="Guardar">
             <Check size={14} />
           </button>
-          <button type="button" onClick={() => { setEditing(false); setForm({ name: sw.status.name, color: sw.status.color, sort_order: sw.status.sort_order }); }}
+          <button type="button" onClick={() => { setEditing(false); setForm({ name: sw.status.name, color: sw.status.color, sort_order: sw.status.sort_order, scope: sw.status.scope }); }}
             className="p-1 text-slate-400 hover:text-slate-600" title="Cancelar">
             <X size={14} />
           </button>
@@ -322,6 +351,15 @@ function StatusRow({
             <span className={`text-sm font-medium truncate ${isDisabled ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
               {sw.status.name}
             </span>
+            {sw.status.scope !== 'both' && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${
+                sw.status.scope === 'income'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {sw.status.scope === 'income' ? 'Ingreso' : 'Gasto'}
+              </span>
+            )}
             {sw.rules.length === 0 && !isDisabled && (
               <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">Sin reglas</span>
             )}
@@ -332,14 +370,20 @@ function StatusRow({
           </button>
 
           <button onClick={() => setEditing(true)}
-            className="p-1 text-slate-300 hover:text-indigo-500 transition-colors shrink-0" title="Editar">
+            className="p-1 text-slate-300 hover:text-indigo-500 transition-colors shrink-0" title="Editar nombre y color">
             <Pencil size={13} />
           </button>
           <ToggleSwitch on={!isDisabled} onChange={onToggle} disabled={togglePending} />
-          <button onClick={onDelete}
-            className="p-1 text-slate-300 hover:text-red-500 transition-colors shrink-0" title="Eliminar permanentemente">
-            <Trash2 size={14} />
-          </button>
+          {sw.status.system_key ? (
+            <span className="p-1 text-slate-200 shrink-0 cursor-default" title="Estado del sistema — no eliminable">
+              <Lock size={13} />
+            </span>
+          ) : (
+            <button onClick={onDelete}
+              className="p-1 text-slate-300 hover:text-red-500 transition-colors shrink-0" title="Eliminar permanentemente">
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       )}
 
