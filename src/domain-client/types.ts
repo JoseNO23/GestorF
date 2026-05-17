@@ -182,6 +182,13 @@ export interface Account {
   archived_at: string | null;
 }
 
+export interface Profile {
+  id: string;
+  name: string;
+  db_file: string;
+  created_at: string;
+}
+
 // ── Inputs para commands ───────────────────────────────────────────────────
 
 export interface CreateEventInput {

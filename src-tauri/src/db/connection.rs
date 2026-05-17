@@ -2,19 +2,24 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
     SqlitePool,
 };
+use std::path::Path;
 use std::fs;
-use tauri::Manager;
+
+use crate::config::AppConfig;
 
 pub type DbPool = SqlitePool;
 
-pub async fn init(app: &tauri::App) -> Result<DbPool, Box<dyn std::error::Error>> {
-    let app_dir = app.path().app_data_dir()?;
-    fs::create_dir_all(&app_dir)?;
+/// Inicializa el pool de la base de datos del perfil activo.
+/// El app_dir ya debe existir antes de llamar a esta función.
+pub async fn init(app_dir: &Path) -> Result<DbPool, Box<dyn std::error::Error>> {
+    let config = AppConfig::load(app_dir)?;
+    let db_path = config.active_db_path(app_dir);
 
-    let db_path = app_dir.join("gestermoney.db");
+    // Garantizar que el directorio del perfil exista
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
 
-    // Usar .filename() en vez de URL string evita problemas con rutas Windows
-    // (backslashes en "sqlite:C:\..." son inválidos en formato URL).
     let connect_options = SqliteConnectOptions::new()
         .filename(&db_path)
         .create_if_missing(true)

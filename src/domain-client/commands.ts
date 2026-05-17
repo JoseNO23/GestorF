@@ -16,11 +16,32 @@ import type {
   PaymentMethod,
   Period,
   PeriodEvolution,
+  Profile,
   RecurringRule,
   StatusWithRules,
   UpdateEventInput,
   UpsertStatusRulesInput,
 } from './types';
+
+// ── Perfiles ──────────────────────────────────────────────────────────────────
+
+export const listProfiles = () =>
+  invoke<Profile[]>('list_profiles');
+
+export const getActiveProfileId = () =>
+  invoke<string>('get_active_profile_id');
+
+export const createProfile = (name: string) =>
+  invoke<Profile>('create_profile', { name });
+
+export const switchProfile = (id: string) =>
+  invoke<void>('switch_profile', { id });
+
+export const renameProfile = (id: string, name: string) =>
+  invoke<void>('rename_profile', { id, name });
+
+export const deleteProfile = (id: string) =>
+  invoke<void>('delete_profile', { id });
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 

@@ -3,10 +3,12 @@ import AccountsSection from './sections/AccountsSection';
 import PaymentMethodsSection from './sections/PaymentMethodsSection';
 import CategoriesSection from './sections/CategoriesSection';
 import StatusesSection from './sections/StatusesSection';
+import ProfilesSection from './sections/ProfilesSection';
 
-type Tab = 'cuentas' | 'metodos' | 'categorias' | 'estados';
+type Tab = 'perfiles' | 'cuentas' | 'metodos' | 'categorias' | 'estados';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'perfiles', label: 'Perfiles' },
   { id: 'cuentas', label: 'Cuentas' },
   { id: 'metodos', label: 'Métodos de pago' },
   { id: 'categorias', label: 'Categorías' },
@@ -14,7 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('cuentas');
+  const [tab, setTab] = useState<Tab>('perfiles');
 
   return (
     <div className="p-6 max-w-3xl">
@@ -37,10 +39,11 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab === 'cuentas' && <AccountsSection />}
-      {tab === 'metodos' && <PaymentMethodsSection />}
+      {tab === 'perfiles'   && <ProfilesSection />}
+      {tab === 'cuentas'    && <AccountsSection />}
+      {tab === 'metodos'    && <PaymentMethodsSection />}
       {tab === 'categorias' && <CategoriesSection />}
-      {tab === 'estados' && <StatusesSection />}
+      {tab === 'estados'    && <StatusesSection />}
     </div>
   );
 }
